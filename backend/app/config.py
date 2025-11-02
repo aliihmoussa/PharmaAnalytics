@@ -27,12 +27,14 @@ class Config(BaseSettings):
     # CORS Configuration
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
     
-    # Redis Configuration (Optional)
+    # Redis Configuration - Used ONLY for Celery broker and result backend
+    # Redis is NOT used as a database, only for Celery task queue
     REDIS_HOST: Optional[str] = os.getenv("REDIS_HOST")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
     
-    # Celery Configuration
+    # Celery Configuration - Uses Redis as broker and result backend
+    # All application data is stored in PostgreSQL
     CELERY_BROKER_URL: Optional[str] = os.getenv(
         "CELERY_BROKER_URL",
         f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('REDIS_DB', '0')}"
