@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # PostgreSQL - Main application database
   postgres:
     image: postgres:15-alpine
     container_name: pharma_analytics_db
@@ -19,6 +20,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis - Used ONLY for Celery broker and result backend
+  redis:
+    image: redis:7-alpine
+    container_name: pharma_analytics_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  # Flask Backend Application
   backend:
     build:
       context: .
@@ -27,6 +44,10 @@ services:
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
       - DATABASE_URL=postgresql://${DB_USER:-pharma_user}:${DB_PASSWORD:-pharma_password}@postgres:5432/${DB_NAME:-pharma_analytics_db}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     ports:
       - "${BACKEND_PORT:-5000}:5000"
     volumes:
@@ -35,8 +56,33 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: python -m flask run --host=0.0.0.0 --port=5000
+      redis:
+        condition: service_healthy
+    command: python run.py
+
+  # Celery Worker - Background task processor
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: pharma_analytics_celery
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-pharma_user}:${DB_PASSWORD:-pharma_password}@postgres:5432/${DB_NAME:-pharma_analytics_db}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A celery_worker worker --loglevel=info
 
 volumes:
   postgres_data:
+  redis_data:
 
