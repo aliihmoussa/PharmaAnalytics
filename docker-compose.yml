@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pharma_analytics_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-pharma_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pharma_password}
+      POSTGRES_DB: ${DB_NAME:-pharma_analytics_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pharma_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: pharma_analytics_backend
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-development}
+      - DATABASE_URL=postgresql://${DB_USER:-pharma_user}:${DB_PASSWORD:-pharma_password}@postgres:5432/${DB_NAME:-pharma_analytics_db}
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: python -m flask run --host=0.0.0.0 --port=5000
+
+volumes:
+  postgres_data:
+

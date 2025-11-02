@@ -1,0 +1,95 @@
+{
+  "fields": {
+    "DOC": {
+      "description": "Document ID - unique identifier for the transaction record",
+      "type": "integer",
+      "required": true
+    },
+    "LINE": {
+      "description": "Line number - sequence within document",
+      "type": "integer",
+      "required": false
+    },
+    "CAT": {
+      "description": "Drug category code - classification by function/mechanism",
+      "type": "integer",
+      "required": false
+    },
+    "C.R": {
+      "description": "Consuming department - where drug was used",
+      "type": "integer",
+      "required": false
+    },
+    "DATE": {
+      "description": "Patient admission date (format: DD/MM/YY)",
+      "type": "date",
+      "required": true
+    },
+    "MOV #": {
+      "description": "Unique movement transaction identifier",
+      "type": "integer",
+      "required": true
+    },
+    "MOV DES": {
+      "description": "Movement description in Arabic text",
+      "type": "string",
+      "required": false
+    },
+    "CODE": {
+      "description": "Internal hospital drug code",
+      "type": "string",
+      "required": true
+    },
+    "ARTICLE": {
+      "description": "Trade name of the drug",
+      "type": "string",
+      "required": true
+    },
+    "M": {
+      "description": "Unknown field (requires investigation)",
+      "type": "string",
+      "required": false
+    },
+    "C.S": {
+      "description": "Supplying department - source that issued the drug",
+      "type": "integer",
+      "required": false
+    },
+    "QTY": {
+      "description": "Quantity - negative = dispensed to patient, positive = received/stocked",
+      "type": "integer",
+      "required": true
+    },
+    "U.P": {
+      "description": "Unit price - cost per unit",
+      "type": "decimal",
+      "required": true
+    },
+    "T.P": {
+      "description": "Total price - calculated as U.P × QTY",
+      "type": "decimal",
+      "required": true
+    },
+    "AD DATE": {
+      "description": "Admission date (may duplicate DATE)",
+      "type": "date",
+      "required": false
+    },
+    "R": {
+      "description": "Room number - patient's assigned hospital room",
+      "type": "integer",
+      "required": false
+    },
+    "U": {
+      "description": "Bed number - patient bed identifier",
+      "type": "integer",
+      "required": false
+    },
+    "AGE": {
+      "description": "Patient age (format may vary)",
+      "type": "string",
+      "required": false
+    }
+  }
+}
+
