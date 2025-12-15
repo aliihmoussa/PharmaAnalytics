@@ -64,6 +64,10 @@ def validate_request(model_class):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip validation for OPTIONS requests (handled by CORS)
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+            
             try:
                 if request.method == 'GET':
                     validated_data = model_class.from_query_params(request.args)

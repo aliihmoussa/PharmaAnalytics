@@ -97,3 +97,90 @@ class ChartDataRequest(BaseModel):
             filters={}
         )
 
+
+class MetricTypeEnum(str, Enum):
+    """Metric type for year comparison."""
+    QUANTITY = "quantity"
+    VALUE = "value"
+    TRANSACTIONS = "transactions"
+
+
+class YearComparisonRequest(BaseModel):
+    """Request model for year-over-year comparison."""
+    metric_type: MetricTypeEnum = MetricTypeEnum.QUANTITY
+    drug_code: Optional[str] = None
+    start_year: Optional[int] = Field(default=2019, ge=2010, le=2030)
+    end_year: Optional[int] = Field(default=2022, ge=2010, le=2030)
+    
+    @field_validator('end_year')
+    @classmethod
+    def validate_year_range(cls, v, info):
+        """Validate that end_year is after or equal to start_year."""
+        if 'start_year' in info.data and v < info.data['start_year']:
+            raise ValueError('end_year must be after or equal to start_year')
+        return v
+    
+    @classmethod
+    def from_query_params(cls, params):
+        """Create instance from Flask query parameters."""
+        metric_str = params.get('metric_type', 'quantity').lower()
+        try:
+            metric_type = MetricTypeEnum(metric_str)
+        except ValueError:
+            metric_type = MetricTypeEnum.QUANTITY
+        
+        return cls(
+            metric_type=metric_type,
+            drug_code=params.get('drug_code'),
+            start_year=int(params['start_year']) if params.get('start_year') else 2019,
+            end_year=int(params['end_year']) if params.get('end_year') else 2022
+        )
+
+
+class CategoryAnalysisRequest(BaseModel):
+    """Request model for category analysis."""
+    start_date: date
+    end_date: date
+    granularity: str = Field(default='monthly', pattern='^(monthly|quarterly)$')
+    
+    @field_validator('end_date')
+    @classmethod
+    def validate_date_range(cls, v, info):
+        """Validate that end_date is after start_date."""
+        if 'start_date' in info.data and v < info.data['start_date']:
+            raise ValueError('end_date must be after or equal to start_date')
+        return v
+    
+    @classmethod
+    def from_query_params(cls, params):
+        """Create instance from Flask query parameters."""
+        return cls(
+            start_date=parse_date(params.get('start_date')),
+            end_date=parse_date(params.get('end_date')),
+            granularity=params.get('granularity', 'monthly')
+        )
+
+
+class PatientDemographicsRequest(BaseModel):
+    """Request model for patient demographics."""
+    start_date: date
+    end_date: date
+    group_by: str = Field(default='age', pattern='^(age|room|bed)$')
+    
+    @field_validator('end_date')
+    @classmethod
+    def validate_date_range(cls, v, info):
+        """Validate that end_date is after start_date."""
+        if 'start_date' in info.data and v < info.data['start_date']:
+            raise ValueError('end_date must be after or equal to start_date')
+        return v
+    
+    @classmethod
+    def from_query_params(cls, params):
+        """Create instance from Flask query parameters."""
+        return cls(
+            start_date=parse_date(params.get('start_date')),
+            end_date=parse_date(params.get('end_date')),
+            group_by=params.get('group_by', 'age')
+        )
+

@@ -53,3 +53,52 @@ class ChartDataResponse(BaseModel):
     data: Dict
     config: Optional[Dict] = None
 
+
+class YearDataPoint(BaseModel):
+    """Year comparison data point."""
+    year: int
+    metric_value: float
+
+
+class YearComparisonResponse(BaseModel):
+    """Response model for year-over-year comparison."""
+    metric_type: str
+    data: List[YearDataPoint]
+    drug_code: Optional[str] = None
+    years_compared: List[int]
+
+
+class CategoryDataPoint(BaseModel):
+    """Category analysis data point."""
+    period: str
+    category_id: int
+    total_quantity: int
+    total_value: float
+    transaction_count: int
+    unique_drugs: int
+
+
+class CategoryAnalysisResponse(BaseModel):
+    """Response model for category analysis."""
+    data: List[CategoryDataPoint]
+    granularity: str
+    period: Dict[str, date]
+    total_categories: int
+
+
+class DemographicsDataPoint(BaseModel):
+    """Patient demographics data point."""
+    group: str
+    transaction_count: int
+    total_quantity: int
+    total_value: float
+    unique_drugs: Optional[int] = None
+
+
+class PatientDemographicsResponse(BaseModel):
+    """Response model for patient demographics."""
+    data: List[DemographicsDataPoint]
+    group_by: str
+    period: Dict[str, date]
+    total_groups: int
+

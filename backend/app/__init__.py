@@ -8,6 +8,8 @@ from backend.app.database.connection import DatabaseConnection
 from backend.app.extensions import celery_app
 from backend.app.modules.ingestion.routes import ingestion_bp
 from backend.app.modules.dashboard.routes import dashboard_bp
+from backend.app.modules.ml.routes import ml_bp
+from backend.app.modules.ml_xgboost.routes import ml_xgboost_bp
 
 # Configure logging
 logging.basicConfig(
@@ -26,9 +28,17 @@ def create_app():
     app.config['SECRET_KEY'] = config.SECRET_KEY
     app.config['DEBUG'] = config.DEBUG
     
-    # Initialize CORS
-    origins = config.CORS_ORIGINS.split(',')
-    CORS(app, origins=origins, supports_credentials=True)
+    # Initialize CORS with explicit configuration
+    origins = [origin.strip() for origin in config.CORS_ORIGINS.split(',')]
+    CORS(
+        app,
+        origins=origins,
+        supports_credentials=True,
+        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
+        expose_headers=['Content-Type', 'X-Request-ID'],
+        max_age=3600
+    )
     
     # Initialize database connection pool
     try:
@@ -55,6 +65,8 @@ def create_app():
     # Register blueprints
     app.register_blueprint(ingestion_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(ml_bp)
+    app.register_blueprint(ml_xgboost_bp)
     
     # Health check route at root
     @app.route('/')

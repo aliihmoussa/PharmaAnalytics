@@ -14,6 +14,7 @@ def process_ingestion_task(self, ingestion_log_id: str, file_path: str, file_nam
     Celery task to process file ingestion.
     
     Args:
+        self: Task instance (bound by Celery when bind=True)
         ingestion_log_id: UUID string of ingestion log
         file_path: Path to the file to process
         file_name: Original file name

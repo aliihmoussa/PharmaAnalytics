@@ -8,11 +8,17 @@ from backend.app.modules.dashboard.requests import (
     TopDrugsRequest,
     DrugDemandRequest,
     ChartDataRequest,
-    GranularityEnum
+    GranularityEnum,
+    YearComparisonRequest,
+    CategoryAnalysisRequest,
+    PatientDemographicsRequest
 )
 from backend.app.modules.dashboard.serializers import (
     DrugInfo,
-    TimeSeriesPoint
+    TimeSeriesPoint,
+    YearDataPoint,
+    CategoryDataPoint,
+    DemographicsDataPoint
 )
 from backend.app.modules.dashboard.exceptions import NoDataFoundException, InvalidChartTypeException
 
@@ -99,21 +105,29 @@ class DashboardService(BaseService):
         avg_daily_dispensed = None
         date_range_dict = None
         
+        # Helper function to safely convert to int/float, handling None values
+        def safe_int(value, default=0):
+            return int(value) if value is not None else default
+        
+        def safe_float(value, default=0.0):
+            return float(value) if value is not None else default
+        
         if start_date and end_date:
             days_diff = (end_date - start_date).days + 1
-            if days_diff > 0:
-                avg_daily_dispensed = stats.get('total_dispensed', 0) / days_diff
+            total_dispensed = safe_int(stats.get('total_dispensed'), 0)
+            if days_diff > 0 and total_dispensed:
+                avg_daily_dispensed = total_dispensed / days_diff
             date_range_dict = {
                 'start': start_date.isoformat(),
                 'end': end_date.isoformat()
             }
         
         return {
-            'total_dispensed': int(stats.get('total_dispensed', 0)),
-            'total_value': float(stats.get('total_value', 0.0)),
-            'total_transactions': int(stats.get('total_transactions', 0)),
-            'unique_drugs': int(stats.get('unique_drugs', 0)),
-            'unique_departments': int(stats.get('unique_departments', 0)),
+            'total_dispensed': safe_int(stats.get('total_dispensed'), 0),
+            'total_value': safe_float(stats.get('total_value'), 0.0),
+            'total_transactions': safe_int(stats.get('total_transactions'), 0),
+            'unique_drugs': safe_int(stats.get('unique_drugs'), 0),
+            'unique_departments': safe_int(stats.get('unique_departments'), 0),
             'date_range': date_range_dict,
             'avg_daily_dispensed': round(avg_daily_dispensed, 2) if avg_daily_dispensed else None
         }
@@ -195,5 +209,104 @@ class DashboardService(BaseService):
                 'x_axis': 'department_id',
                 'y_axis': 'total_dispensed'
             }
+        }
+    
+    def get_year_comparison(self, filters: YearComparisonRequest) -> Dict:
+        """Get year-over-year comparison data."""
+        with self.dal:
+            raw_data = self.dal.get_year_comparison(
+                metric_type=filters.metric_type.value,
+                drug_code=filters.drug_code,
+                start_year=filters.start_year,
+                end_year=filters.end_year
+            )
+        
+        if not raw_data:
+            raise NoDataFoundException("No data found for year comparison")
+        
+        data_points = [
+            YearDataPoint(
+                year=int(row['year']),
+                metric_value=float(row['metric_value']) if row['metric_value'] else 0.0
+            )
+            for row in raw_data
+        ]
+        
+        years_compared = [point.year for point in data_points]
+        
+        return {
+            'metric_type': filters.metric_type.value,
+            'data': [point.model_dump() for point in data_points],
+            'drug_code': filters.drug_code,
+            'years_compared': years_compared
+        }
+    
+    def get_category_analysis(self, filters: CategoryAnalysisRequest) -> Dict:
+        """Get category analysis data."""
+        with self.dal:
+            raw_data = self.dal.get_category_analysis(
+                start_date=filters.start_date,
+                end_date=filters.end_date,
+                granularity=filters.granularity
+            )
+        
+        if not raw_data:
+            raise NoDataFoundException("No category data found")
+        
+        data_points = [
+            CategoryDataPoint(
+                period=str(row['period']),
+                category_id=int(row['category_id']),
+                total_quantity=int(row['total_quantity']) if row['total_quantity'] else 0,
+                total_value=float(row['total_value']) if row['total_value'] else 0.0,
+                transaction_count=int(row['transaction_count']) if row['transaction_count'] else 0,
+                unique_drugs=int(row['unique_drugs']) if row['unique_drugs'] else 0
+            )
+            for row in raw_data
+        ]
+        
+        unique_categories = len(set(point.category_id for point in data_points))
+        
+        return {
+            'data': [point.model_dump() for point in data_points],
+            'granularity': filters.granularity,
+            'period': {
+                'start': filters.start_date.isoformat(),
+                'end': filters.end_date.isoformat()
+            },
+            'total_categories': unique_categories
+        }
+    
+    def get_patient_demographics(self, filters: PatientDemographicsRequest) -> Dict:
+        """Get patient demographics data."""
+        with self.dal:
+            raw_data = self.dal.get_patient_demographics(
+                start_date=filters.start_date,
+                end_date=filters.end_date,
+                group_by=filters.group_by
+            )
+        
+        if not raw_data:
+            raise NoDataFoundException("No demographics data found")
+        
+        data_points = [
+            DemographicsDataPoint(
+                group=str(row.get('age_group') or row.get('room_number') or row.get('bed_number') or 'unknown'),
+                transaction_count=int(row['transaction_count']) if row['transaction_count'] else 0,
+                total_quantity=int(row['total_quantity']) if row['total_quantity'] else 0,
+                total_value=float(row['total_value']) if row['total_value'] else 0.0,
+                unique_drugs=int(row['unique_drugs']) if 'unique_drugs' in row and row['unique_drugs'] else None
+            )
+            for row in raw_data
+        ]
+        
+        return {
+            'data': [point.model_dump() for point in data_points],
+            'group_by': filters.group_by,
+            'period': {
+                'start': filters.start_date.isoformat(),
+                'end': filters.end_date.isoformat()
+            },
+            'total_groups': len(data_points)
         }
 

@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from backend.app.shared.base_service import BaseService
 from backend.app.modules.ingestion.dal import DataUploadDAL
 from backend.app.modules.ingestion.processors import IngestionProcessor, calculate_file_hash
+from backend.app.config import config
 from backend.app.modules.ingestion.exceptions import (
     FileValidationError,
     UnsupportedFileTypeError,
@@ -29,7 +30,7 @@ class IngestionService(BaseService):
     
     # Configuration constants
     MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
-    ALLOWED_EXTENSIONS = {'csv', 'txt', 'tsv', 'dat'}
+    ALLOWED_EXTENSIONS = {'csv', 'txt', 'tsv', 'dat', 'xlsx', 'xls'}
     UPLOAD_DIR = Path('data/uploads/temp')
     
     def __init__(self):
@@ -114,12 +115,7 @@ class IngestionService(BaseService):
             raise DuplicateFileError(f"File '{file_name}' has already been ingested")
         
         # Create ingestion log
-        ingestion_log = self.dal.create_ingestion_log(
-            file_name=file_name,
-            file_year=file_year,
-            file_hash=file_hash,
-            status='pending'
-        )
+        ingestion_log = self.dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
         
         # Submit Celery task
         task = process_ingestion_task.delay(
@@ -200,6 +196,92 @@ class IngestionService(BaseService):
         
         return False
     
+    
+    def ingest_file_from_path(self, file_path: str, file_year: Optional[int] = None) -> dict:
+        """
+        Ingest a file from a direct file path.
+        
+        Args:
+            file_path: Path to the file (absolute or relative)
+            file_year: Optional year of the data
+        
+        Returns:
+            Dictionary with ingestion_log_id, status, etc.
+        
+        Raises:
+            FileValidationError: If file path is invalid or not accessible
+        """
+        from pathlib import Path
+        
+        # Resolve path
+        file_path_obj = Path(file_path).resolve()
+        
+        # Security: Validate path is within allowed directories
+        allowed_paths = [Path(p.strip()).resolve() for p in config.ALLOWED_INGESTION_PATHS.split(',')]
+        if not any(str(file_path_obj).startswith(str(allowed_path)) for allowed_path in allowed_paths):
+            raise FileValidationError(
+                f"File path is not within allowed directories. Allowed: {config.ALLOWED_INGESTION_PATHS}",
+                details={'file_path': str(file_path_obj)}
+            )
+        
+        # Check if file exists
+        if not file_path_obj.exists():
+            raise FileValidationError(f"File not found: {file_path_obj}")
+        
+        # Check if file is readable
+        if not file_path_obj.is_file():
+            raise FileValidationError(f"Path is not a file: {file_path_obj}")
+        
+        if not os.access(file_path_obj, os.R_OK):
+            raise FileValidationError(f"File is not readable: {file_path_obj}")
+        
+        # Validate file extension
+        file_name = file_path_obj.name
+        if not file_name or '.' not in file_name:
+            raise UnsupportedFileTypeError("File must have an extension")
+        
+        extension = file_name.rsplit('.', 1)[1].lower()
+        if extension not in self.ALLOWED_EXTENSIONS:
+            raise UnsupportedFileTypeError(
+                f"File type '{extension}' not allowed. Allowed: {', '.join(self.ALLOWED_EXTENSIONS)}"
+            )
+        
+        # Check file size
+        file_size = file_path_obj.stat().st_size
+        if file_size > self.MAX_FILE_SIZE:
+            raise FileSizeLimitExceededError(
+                f"File size ({file_size / 1024 / 1024:.2f}MB) exceeds maximum ({self.MAX_FILE_SIZE / 1024 / 1024:.2f}MB)"
+            )
+        
+        if file_size == 0:
+            raise FileValidationError("File is empty")
+        
+        # Calculate file hash
+        file_hash = calculate_file_hash(file_path_obj)
+        
+        # Check for duplicates
+        existing_log = self.dal.get_ingestion_log_by_filename(file_name)
+        if existing_log and existing_log.ingestion_status == 'completed':
+            raise DuplicateFileError(f"File '{file_name}' has already been ingested")
+        
+        # Create ingestion log
+        ingestion_log = self.dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
+        
+        # Submit Celery task
+        task = process_ingestion_task.delay(
+            str(ingestion_log.id),
+            str(file_path_obj),
+            file_name
+        )
+        
+        return {
+            'upload_id': task.id,
+            'ingestion_log_id': str(ingestion_log.id),
+            'file_name': file_name,
+            'file_path': str(file_path_obj),
+            'status': 'pending',
+            'message': 'File queued for processing'
+        }
     
     def _log_to_dict(self, log_entry) -> dict:
         """Convert log entry to dictionary."""

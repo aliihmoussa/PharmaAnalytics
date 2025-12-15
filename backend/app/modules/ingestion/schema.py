@@ -21,7 +21,7 @@ FIELD_MAPPINGS = {
     'AD DATE': 'admission_date',
     'R': 'room_number',
     'U': 'bed_number',
-    'AGE': 'patient_age'
+    'AGE': 'date_of_birth'  # Store as date of birth, not age
 }
 
 # Expected data types

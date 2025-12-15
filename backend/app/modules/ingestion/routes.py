@@ -1,24 +1,22 @@
 """Routes for ingestion module."""
 
-from flask import Blueprint, request, jsonify
+import logging
 import uuid
 from datetime import datetime
-from backend.app.modules.ingestion.services import IngestionService
+from flask import Blueprint, request, jsonify
+
 from backend.app.modules.ingestion.requests import IngestionStatusQuery
 from backend.app.modules.ingestion.responses import (
     UploadResponse,
     IngestionStatusResponse,
     IngestionProgressResponse
 )
+from backend.app.modules.ingestion.services import IngestionService
 from backend.app.shared.middleware import handle_exceptions, format_success_response
-import logging
 
 logger = logging.getLogger(__name__)
 
 ingestion_bp = Blueprint('ingestion', __name__, url_prefix='/api/ingestion')
-
-# Initialize service instance
-upload_service = IngestionService()
 
 
 @ingestion_bp.route('/upload', methods=['POST'])
@@ -37,6 +35,7 @@ def upload_file():
     Returns:
         Upload response with upload_id and status
     """
+    upload_service = IngestionService()
     if 'file' not in request.files:
         return jsonify({
             'error': {
@@ -86,6 +85,7 @@ def get_ingestion_status(ingestion_log_id: uuid.UUID):
     Returns:
         Ingestion status with progress information
     """
+    upload_service = IngestionService()
     status = upload_service.get_ingestion_status(str(ingestion_log_id))
     
     # Determine response type
@@ -126,7 +126,7 @@ def list_ingestion_history():
         List of ingestion logs
     """
     query = IngestionStatusQuery.from_query_params(request.args)
-    
+    upload_service = IngestionService()
     history = upload_service.list_ingestion_history(
         status=query.status,
         limit=query.limit,
@@ -143,6 +143,51 @@ def list_ingestion_history():
     })
 
 
+@ingestion_bp.route('/ingest-path', methods=['POST'])
+@handle_exceptions
+def ingest_from_path():
+    """
+    POST /api/ingestion/ingest-path
+    
+    Ingest a file from a direct file path.
+    
+    JSON body:
+    - file_path: Path to the file (required)
+    - file_year: Year of the data (optional)
+    
+    Returns:
+        Upload response with ingestion_log_id and status
+    """
+    data = request.get_json()
+    upload_service = IngestionService()
+    if not data or 'file_path' not in data:
+        return jsonify({
+            'error': {
+                'code': 'VALIDATION_ERROR',
+                'message': 'file_path is required'
+            }
+        }), 400
+    
+    file_path = data.get('file_path')
+    file_year = data.get('file_year')
+    file_year = int(file_year) if file_year and str(file_year).isdigit() else None
+    
+    try:
+        result = upload_service.ingest_file_from_path(file_path, file_year)
+        response = UploadResponse(
+            upload_id=result['upload_id'],
+            ingestion_log_id=result['ingestion_log_id'],
+            file_name=result['file_name'],
+            status=result['status'],
+            message=result['message']
+        )
+        return format_success_response(response.model_dump(), status_code=202)
+    
+    except Exception as e:
+        logger.error(f"Ingest from path error: {e}", exc_info=True)
+        raise
+
+
 @ingestion_bp.route('/<uuid:ingestion_log_id>/cancel', methods=['DELETE'])
 @handle_exceptions
 def cancel_ingestion(ingestion_log_id: uuid.UUID):
@@ -154,6 +199,7 @@ def cancel_ingestion(ingestion_log_id: uuid.UUID):
     Returns:
         Success message
     """
+    upload_service = IngestionService()
     cancelled = upload_service.cancel_ingestion(str(ingestion_log_id))
     
     if cancelled:
@@ -167,4 +213,3 @@ def cancel_ingestion(ingestion_log_id: uuid.UUID):
                 'message': 'Ingestion cannot be cancelled (already completed or failed)'
             }
         }), 400
-
