@@ -29,7 +29,8 @@ class IngestionService(BaseService):
     
     # Configuration constants
     MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
-    ALLOWED_EXTENSIONS = {'csv', 'txt', 'tsv', 'dat'}
+    ALLOWED_EXTENSIONS = {'dat', 'txt', 'csv', 'tsv', 'xlsx', 'xls'}
+
     UPLOAD_DIR = Path('data/uploads/temp')
     
     def __init__(self):
