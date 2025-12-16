@@ -60,7 +60,7 @@ curl http://localhost:5000/api/ml/forecast/gradient-boosting/DRUG001?forecast_da
     "peak_demand_value": 75.5,
     "total_predicted_cost": 3750.0
   },
-  "chart_data": {
+   "chart_data": {
     "historical": [
       {
         "date": "2023-10-15",

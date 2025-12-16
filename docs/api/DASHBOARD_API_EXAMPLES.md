@@ -625,6 +625,470 @@ GET http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01
 
 ---
 
+## 4.1. Department Chart Data - Detailed Examples
+
+### Endpoint
+```
+GET /api/dashboard/chart-data/department
+```
+
+### Description
+Get department performance chart data for visualization. Returns department-level metrics including total dispensed quantities and values within the specified date range.
+
+### Query Parameters
+- **start_date** (required): Start date in YYYY-MM-DD format
+- **end_date** (required): End date in YYYY-MM-DD format (must be >= start_date)
+
+### Example Requests with Different Query Parameters
+
+#### 1. Single Month Analysis
+Get department performance for a specific month:
+
+**cURL:**
+```bash
+# January 2019
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-01-31"
+
+# February 2019
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-02-01&end_date=2019-02-28"
+
+# March 2019 (31 days)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-03-01&end_date=2019-03-31"
+```
+
+**Python:**
+```python
+import requests
+
+# Single month
+params = {
+    "start_date": "2019-01-01",
+    "end_date": "2019-01-31"
+}
+response = requests.get("http://localhost:5000/api/dashboard/chart-data/department", params=params)
+print(response.json())
+```
+
+#### 2. Quarter Analysis
+Get department performance for a quarter:
+
+**cURL:**
+```bash
+# Q1 2019 (January - March)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-03-31"
+
+# Q2 2019 (April - June)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-04-01&end_date=2019-06-30"
+
+# Q3 2019 (July - September)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-07-01&end_date=2019-09-30"
+
+# Q4 2019 (October - December)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-10-01&end_date=2019-12-31"
+```
+
+**Python:**
+```python
+import requests
+
+# Q1 2019
+params = {
+    "start_date": "2019-01-01",
+    "end_date": "2019-03-31"
+}
+response = requests.get("http://localhost:5000/api/dashboard/chart-data/department", params=params)
+print(response.json())
+```
+
+#### 3. Full Year Analysis
+Get department performance for an entire year:
+
+**cURL:**
+```bash
+# Full year 2019
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-12-31"
+
+# Full year 2020
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2020-01-01&end_date=2020-12-31"
+
+# Full year 2021
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2021-01-01&end_date=2021-12-31"
+```
+
+**Python:**
+```python
+import requests
+
+# Full year 2019
+params = {
+    "start_date": "2019-01-01",
+    "end_date": "2019-12-31"
+}
+response = requests.get("http://localhost:5000/api/dashboard/chart-data/department", params=params)
+print(response.json())
+```
+
+#### 4. Custom Date Range
+Get department performance for a custom date range:
+
+**cURL:**
+```bash
+# First half of 2019
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-06-30"
+
+# Last 6 months of 2019
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-07-01&end_date=2019-12-31"
+
+# Specific 2-month period
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-05-01&end_date=2019-06-30"
+
+# Week range
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-01-07"
+
+# 90-day period
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-03-31"
+```
+
+**Python:**
+```python
+import requests
+from datetime import datetime, timedelta
+
+# Custom date range
+params = {
+    "start_date": "2019-05-01",
+    "end_date": "2019-06-30"
+}
+response = requests.get("http://localhost:5000/api/dashboard/chart-data/department", params=params)
+print(response.json())
+```
+
+#### 5. Multi-Year Comparison
+Get department performance across multiple years:
+
+**cURL:**
+```bash
+# 2019-2020
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2020-12-31"
+
+# 2019-2021 (3 years)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2021-12-31"
+
+# 2020-2022
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2020-01-01&end_date=2022-12-31"
+```
+
+**Python:**
+```python
+import requests
+
+# Multi-year
+params = {
+    "start_date": "2019-01-01",
+    "end_date": "2021-12-31"
+}
+response = requests.get("http://localhost:5000/api/dashboard/chart-data/department", params=params)
+print(response.json())
+```
+
+#### 6. Recent Periods
+Get department performance for recent time periods:
+
+**cURL:**
+```bash
+# Last 30 days (relative to current date - adjust dates as needed)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2022-11-01&end_date=2022-11-30"
+
+# Last 7 days
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2022-11-24&end_date=2022-11-30"
+
+# Current month (example for November 2022)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2022-11-01&end_date=2022-11-30"
+
+# Year-to-date (example for 2022)
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2022-01-01&end_date=2022-11-30"
+```
+
+**Python:**
+```python
+import requests
+from datetime import datetime, timedelta
+
+# Last 30 days
+end_date = datetime.now()
+start_date = end_date - timedelta(days=30)
+
+params = {
+    "start_date": start_date.strftime("%Y-%m-%d"),
+    "end_date": end_date.strftime("%Y-%m-%d")
+}
+response = requests.get("http://localhost:5000/api/dashboard/chart-data/department", params=params)
+print(response.json())
+```
+
+#### 7. Specific Date Comparisons
+Compare same periods across different years:
+
+**cURL:**
+```bash
+# January 2019 vs January 2020
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-01-31"
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2020-01-01&end_date=2020-01-31"
+
+# Q1 2019 vs Q1 2020
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-03-31"
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2020-01-01&end_date=2020-03-31"
+
+# Summer months (June-August) comparison
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-06-01&end_date=2019-08-31"
+curl "http://localhost:5000/api/dashboard/chart-data/department?start_date=2020-06-01&end_date=2020-08-31"
+```
+
+**Python:**
+```python
+import requests
+
+# Compare same period across years
+periods = [
+    {"start_date": "2019-01-01", "end_date": "2019-01-31"},
+    {"start_date": "2020-01-01", "end_date": "2020-01-31"},
+    {"start_date": "2021-01-01", "end_date": "2021-01-31"}
+]
+
+for period in periods:
+    response = requests.get(
+        "http://localhost:5000/api/dashboard/chart-data/department",
+        params=period
+    )
+    print(f"Period {period['start_date']} to {period['end_date']}:")
+    print(response.json())
+    print("\n")
+```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Department Chart Data"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/chart-data/department`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description | Example Use Cases |
+   |-----|-------|-------------|-------------------|
+   | `start_date` | `2019-01-01` | Required: Start date (YYYY-MM-DD) | Single month, quarter start, year start |
+   | `end_date` | `2019-01-31` | Required: End date (YYYY-MM-DD) | Month end, quarter end, year end |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Requests:**
+
+**Single Month:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-01-31
+```
+
+**Quarter:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-03-31
+```
+
+**Full Year:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-12-31
+```
+
+**Custom Range:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-05-01&end_date=2019-06-30
+```
+
+**Expected Response Status:** `200 OK`
+
+### Response Example
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "chart_type": "department",
+    "data": {
+      "departments": [
+        {
+          "department_id": 1,
+          "department_name": "Cardiology",
+          "total_dispensed": 12500,
+          "total_value": 45000.50
+        },
+        {
+          "department_id": 2,
+          "department_name": "Pediatrics",
+          "total_dispensed": 9800,
+          "total_value": 32000.25
+        },
+        {
+          "department_id": 3,
+          "department_name": "Emergency",
+          "total_dispensed": 15200,
+          "total_value": 58000.75
+        }
+      ]
+    },
+    "config": {
+      "type": "bar",
+      "x_axis": "department_id",
+      "y_axis": "total_dispensed"
+    }
+  }
+}
+```
+
+**Error Response (Missing Parameters):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "start_date is required",
+    "code": "VALIDATION_ERROR"
+  }
+}
+```
+
+**Error Response (Invalid Date Range):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "end_date must be after or equal to start_date",
+    "code": "VALIDATION_ERROR"
+  }
+}
+```
+
+**Error Response (No Data Found):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "No department data found",
+    "code": "NO_DATA_FOUND"
+  }
+}
+```
+
+### Response Fields
+
+- **chart_type**: Always `"department"` for this endpoint
+- **data.departments**: Array of department objects containing:
+  - **department_id**: Unique identifier for the department
+  - **department_name**: Name of the department
+  - **total_dispensed**: Total quantity of drugs dispensed by the department
+  - **total_value**: Total monetary value of drugs dispensed
+- **config**: Chart configuration object:
+  - **type**: Chart type recommendation (`"bar"`)
+  - **x_axis**: Recommended x-axis field (`"department_id"`)
+  - **y_axis**: Recommended y-axis field (`"total_dispensed"`)
+
+### Visualization Recommendations
+
+**Recommended Chart Types:**
+- **Horizontal Bar Chart** (Primary) - Best for comparing department performance
+  - X-axis: Total dispensed or total value
+  - Y-axis: Department names
+  - Easy to read and compare values
+- **Vertical Bar Chart** - Alternative layout
+  - X-axis: Department names
+  - Y-axis: Total dispensed or total value
+- **Treemap** - Size-based visualization
+  - Each department as a rectangle
+  - Size represents total dispensed or value
+  - Color intensity can show additional metrics
+- **Donut/Pie Chart** - Distribution visualization
+  - Shows percentage distribution across departments
+  - Useful for understanding department share
+
+**Next.js Implementation Example:**
+```tsx
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+function DepartmentChart({ data }) {
+  const chartData = data.data.departments.map(dept => ({
+    name: dept.department_name,
+    dispensed: dept.total_dispensed,
+    value: dept.total_value
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={400}>
+      <BarChart data={chartData} layout="vertical">
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis type="number" />
+        <YAxis dataKey="name" type="category" width={150} />
+        <Tooltip />
+        <Legend />
+        <Bar dataKey="dispensed" fill="#8884d8" name="Total Dispensed" />
+        <Bar dataKey="value" fill="#82ca9d" name="Total Value" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+```
+
+### Common Use Cases
+
+1. **Monthly Department Performance Review**
+   - Use single month date ranges
+   - Compare departments within the same month
+   - Identify top-performing departments
+
+2. **Quarterly Business Reviews**
+   - Use quarter date ranges (3-month periods)
+   - Track department trends over quarters
+   - Compare QoQ performance
+
+3. **Annual Reports**
+   - Use full year date ranges
+   - Generate comprehensive department analytics
+   - Year-over-year comparisons
+
+4. **Custom Analysis**
+   - Use flexible date ranges for specific analysis needs
+   - Compare different time periods
+   - Identify seasonal patterns
+
+### Best Practices
+
+1. **Date Range Selection**
+   - Use appropriate date ranges for your analysis needs
+   - Avoid very large date ranges (>3 years) unless necessary
+   - Consider data volume and performance
+
+2. **Error Handling**
+   - Always check for `success: false` in responses
+   - Handle `NO_DATA_FOUND` errors gracefully
+   - Validate date formats before sending requests
+
+3. **Caching**
+   - Consider caching responses for frequently accessed date ranges
+   - Implement cache invalidation for real-time data needs
+
+4. **Visualization**
+   - Sort departments by value for better readability
+   - Use consistent color schemes across charts
+   - Include tooltips with detailed information
+
+---
+
 ## 5. Get Department Performance
 
 ### Endpoint
@@ -1847,4 +2311,597 @@ If you have a Postman Collection JSON file:
   ]
 }
 ```
+
+---
+
+## Cost Analysis Dashboard
+
+### Endpoint
+```
+GET /api/viz/cost-analysis
+```
+
+### Description
+Get comprehensive cost analysis data for visualization. Returns data for multiple chart types including sunburst, horizontal bar, line, and bubble charts. Supports advanced filtering by date range, departments, price range, and drug categories.
+
+### Query Parameters
+
+| Parameter | Type | Required | Description | Example |
+|-----------|------|----------|-------------|---------|
+| `start_date` | string (YYYY-MM-DD) | Yes | Start date for analysis | `2019-01-01` |
+| `end_date` | string (YYYY-MM-DD) | Yes | End date for analysis | `2019-12-31` |
+| `departments` | int[] | No | Filter by department IDs (comma-separated or multiple params) | `1,2,3` or `departments[]=1&departments[]=2` |
+| `price_min` | float | No | Minimum unit price filter | `10.0` |
+| `price_max` | float | No | Maximum unit price filter | `1000.0` |
+| `drug_categories` | int[] | No | Filter by drug category IDs (comma-separated or multiple params) | `5,6,7` or `drug_categories[]=5&drug_categories[]=6` |
+
+### Using cURL
+
+#### Basic Request
+```bash
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31"
+```
+
+#### With Department Filter
+```bash
+# Single department
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&departments=1"
+
+# Multiple departments (comma-separated)
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&departments=1,2,3"
+```
+
+#### With Price Range Filter
+```bash
+# Minimum price only
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&price_min=10.0"
+
+# Price range
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&price_min=10.0&price_max=1000.0"
+```
+
+#### With Drug Category Filter
+```bash
+# Single category
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&drug_categories=5"
+
+# Multiple categories (comma-separated)
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&drug_categories=5,6,7"
+```
+
+#### Combined Filters
+```bash
+curl "http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&departments=1,2,3&price_min=10.0&price_max=1000.0&drug_categories=5,6"
+```
+
+### Using Python requests
+
+```python
+import requests
+
+base_url = "http://localhost:5000/api/viz/cost-analysis"
+
+# Basic request
+params = {
+    "start_date": "2019-01-01",
+    "end_date": "2019-12-31"
+}
+response = requests.get(base_url, params=params)
+print(response.json())
+
+# With all filters
+params = {
+    "start_date": "2019-01-01",
+    "end_date": "2019-12-31",
+    "departments": "1,2,3",  # Comma-separated string
+    "price_min": 10.0,
+    "price_max": 1000.0,
+    "drug_categories": "5,6,7"  # Comma-separated string
+}
+response = requests.get(base_url, params=params)
+data = response.json()
+
+# Access different chart data
+sunburst_data = data['data']['sunburst']['data']
+top_drivers = data['data']['top_cost_drivers']['data']
+daily_trends = data['data']['cost_trends']['daily']['data']
+monthly_trends = data['data']['cost_trends']['monthly']['data']
+bubble_data = data['data']['bubble_chart']['data']
+```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Cost Analysis"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/viz/cost-analysis`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+   | `departments` | `1,2,3` | Optional: Comma-separated department IDs |
+   | `price_min` | `10.0` | Optional: Minimum unit price |
+   | `price_max` | `1000.0` | Optional: Maximum unit price |
+   | `drug_categories` | `5,6,7` | Optional: Comma-separated category IDs |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request:**
+```
+GET http://localhost:5000/api/viz/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&departments=1,2,3&price_min=10.0&price_max=1000.0&drug_categories=5,6
+```
+
+**Expected Response Status:** `200 OK`
+
+### Response Structure
+
+The response contains data for four different chart types:
+
+```json
+{
+  "success": true,
+  "data": {
+    "sunburst": {
+      "data": [...],
+      "config": {
+        "type": "sunburst",
+        "description": "Hierarchical cost breakdown: Department → Category → Drug"
+      }
+    },
+    "top_cost_drivers": {
+      "data": [...],
+      "config": {
+        "type": "horizontal_bar",
+        "description": "Top 20 drugs by total cost",
+        "x_axis": "total_cost",
+        "y_axis": "drug_name"
+      }
+    },
+    "cost_trends": {
+      "daily": {
+        "data": [...],
+        "config": {
+          "type": "line",
+          "description": "Daily cost trends",
+          "x_axis": "date",
+          "y_axis": "total_cost"
+        }
+      },
+      "monthly": {
+        "data": [...],
+        "config": {
+          "type": "line",
+          "description": "Monthly cost trends",
+          "x_axis": "date",
+          "y_axis": "total_cost"
+        }
+      }
+    },
+    "bubble_chart": {
+      "data": [...],
+      "config": {
+        "type": "bubble",
+        "description": "Unit Price vs Quantity vs Frequency",
+        "x_axis": "unit_price",
+        "y_axis": "quantity",
+        "size": "frequency"
+      }
+    },
+    "filters_applied": {
+      "start_date": "2019-01-01",
+      "end_date": "2019-12-31",
+      "departments": [1, 2, 3],
+      "price_min": 10.0,
+      "price_max": 1000.0,
+      "drug_categories": [5, 6]
+    }
+  }
+}
+```
+
+### Response Examples
+
+#### 1. Sunburst Chart Data
+
+**Structure:** Hierarchical data for sunburst visualization (Department → Category → Drug)
+
+```json
+{
+  "sunburst": {
+    "data": [
+      {
+        "id": "dept_1",
+        "name": "Department 1",
+        "value": 125000.50,
+        "children": [
+          {
+            "id": "dept_1_cat_5",
+            "name": "Category 5",
+            "value": 75000.25,
+            "children": [
+              {
+                "id": "dept_1_cat_5_drug_ABC123",
+                "name": "Drug Name ABC",
+                "value": 25000.00,
+                "drug_code": "ABC123",
+                "quantity": 500.0,
+                "transaction_count": 45
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "config": {
+      "type": "sunburst",
+      "description": "Hierarchical cost breakdown: Department → Category → Drug"
+    }
+  }
+}
+```
+
+#### 2. Top Cost Drivers (Horizontal Bar Chart)
+
+**Structure:** Top 20 drugs by total cost
+
+```json
+{
+  "top_cost_drivers": {
+    "data": [
+      {
+        "drug_code": "ABC123",
+        "drug_name": "Drug Name ABC",
+        "department_id": 1,
+        "category_id": 5,
+        "total_cost": 25000.00,
+        "total_quantity": 500.0,
+        "avg_unit_price": 50.0,
+        "transaction_count": 45
+      },
+      {
+        "drug_code": "XYZ789",
+        "drug_name": "Drug Name XYZ",
+        "department_id": 2,
+        "category_id": 6,
+        "total_cost": 18000.50,
+        "total_quantity": 300.0,
+        "avg_unit_price": 60.0,
+        "transaction_count": 30
+      }
+    ],
+    "config": {
+      "type": "horizontal_bar",
+      "description": "Top 20 drugs by total cost",
+      "x_axis": "total_cost",
+      "y_axis": "drug_name"
+    }
+  }
+}
+```
+
+#### 3. Cost Trends (Line Chart)
+
+**Daily Trends:**
+```json
+{
+  "cost_trends": {
+    "daily": {
+      "data": [
+        {
+          "date": "2019-01-01",
+          "total_cost": 5000.00,
+          "total_quantity": 100.0,
+          "transaction_count": 25,
+          "avg_unit_price": 50.0
+        },
+        {
+          "date": "2019-01-02",
+          "total_cost": 5200.50,
+          "total_quantity": 105.0,
+          "transaction_count": 27,
+          "avg_unit_price": 49.5
+        }
+      ],
+      "config": {
+        "type": "line",
+        "description": "Daily cost trends",
+        "x_axis": "date",
+        "y_axis": "total_cost"
+      }
+    }
+  }
+}
+```
+
+**Monthly Trends:**
+```json
+{
+  "cost_trends": {
+    "monthly": {
+      "data": [
+        {
+          "date": "2019-01",
+          "total_cost": 150000.00,
+          "total_quantity": 3000.0,
+          "transaction_count": 750,
+          "avg_unit_price": 50.0
+        },
+        {
+          "date": "2019-02",
+          "total_cost": 165000.50,
+          "total_quantity": 3200.0,
+          "transaction_count": 800,
+          "avg_unit_price": 51.5
+        }
+      ],
+      "config": {
+        "type": "line",
+        "description": "Monthly cost trends",
+        "x_axis": "date",
+        "y_axis": "total_cost"
+      }
+    }
+  }
+}
+```
+
+#### 4. Bubble Chart Data
+
+**Structure:** Unit Price (x) vs Quantity (y) vs Frequency (size)
+
+```json
+{
+  "bubble_chart": {
+    "data": [
+      {
+        "drug_code": "ABC123",
+        "drug_name": "Drug Name ABC",
+        "department_id": 1,
+        "category_id": 5,
+        "unit_price": 50.0,
+        "quantity": 500.0,
+        "frequency": 45,
+        "total_cost": 25000.00
+      },
+      {
+        "drug_code": "XYZ789",
+        "drug_name": "Drug Name XYZ",
+        "department_id": 2,
+        "category_id": 6,
+        "unit_price": 60.0,
+        "quantity": 300.0,
+        "frequency": 30,
+        "total_cost": 18000.50
+      }
+    ],
+    "config": {
+      "type": "bubble",
+      "description": "Unit Price vs Quantity vs Frequency",
+      "x_axis": "unit_price",
+      "y_axis": "quantity",
+      "size": "frequency"
+    }
+  }
+}
+```
+
+### Error Responses
+
+**Missing Required Parameters:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "start_date is required",
+    "code": "VALIDATION_ERROR"
+  }
+}
+```
+
+**Invalid Date Range:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "end_date must be after or equal to start_date",
+    "code": "VALIDATION_ERROR"
+  }
+}
+```
+
+**Invalid Price Range:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "price_max must be greater than or equal to price_min",
+    "code": "VALIDATION_ERROR"
+  }
+}
+```
+
+**No Data Found:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "No cost data found for the specified filters",
+    "code": "NO_DATA_FOUND"
+  }
+}
+```
+
+### Visualization Recommendations
+
+#### 1. Sunburst Chart
+**Purpose:** Hierarchical cost breakdown visualization
+
+**Recommended Libraries:**
+- **D3.js**: Full control and customization
+- **Plotly.js**: `<Plotly>` component with built-in sunburst support
+- **Recharts**: Custom implementation using `<PieChart>` with nested structure
+- **Nivo**: `<Sunburst>` component
+
+**Example with Plotly.js:**
+```javascript
+import Plotly from 'plotly.js-dist-min';
+
+const sunburstData = {
+  type: 'sunburst',
+  labels: data.map(d => d.name),
+  parents: data.map(d => d.parent || ''),
+  values: data.map(d => d.value),
+  branchvalues: 'total'
+};
+
+Plotly.newPlot('sunburst-chart', [sunburstData]);
+```
+
+**Example with Nivo:**
+```tsx
+import { ResponsiveSunburst } from '@nivo/sunburst';
+
+<ResponsiveSunburst
+  data={sunburstData}
+  margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+  id="name"
+  value="value"
+  cornerRadius={2}
+  borderColor={{ theme: 'background' }}
+  colors={{ scheme: 'nivo' }}
+/>
+```
+
+#### 2. Horizontal Bar Chart (Top Cost Drivers)
+**Purpose:** Display top 20 cost drivers
+
+**Recommended Libraries:**
+- **Recharts**: `<BarChart>` with `layout="vertical"`
+- **Chart.js**: Horizontal bar chart
+- **Nivo**: `<BarChart>` with horizontal layout
+
+**Example with Recharts:**
+```tsx
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+<ResponsiveContainer width="100%" height={600}>
+  <BarChart data={topDriversData} layout="vertical">
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis type="number" />
+    <YAxis dataKey="drug_name" type="category" width={200} />
+    <Tooltip />
+    <Legend />
+    <Bar dataKey="total_cost" fill="#8884d8" name="Total Cost" />
+  </BarChart>
+</ResponsiveContainer>
+```
+
+#### 3. Line Chart (Cost Trends)
+**Purpose:** Show daily or monthly cost trends over time
+
+**Recommended Libraries:**
+- **Recharts**: `<LineChart>`
+- **Chart.js**: Line chart
+- **Nivo**: `<LineChart>`
+
+**Example with Recharts:**
+```tsx
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+<ResponsiveContainer width="100%" height={400}>
+  <LineChart data={dailyTrendsData}>
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="date" />
+    <YAxis />
+    <Tooltip />
+    <Legend />
+    <Line type="monotone" dataKey="total_cost" stroke="#8884d8" name="Total Cost" />
+    <Line type="monotone" dataKey="total_quantity" stroke="#82ca9d" name="Total Quantity" />
+  </LineChart>
+</ResponsiveContainer>
+```
+
+#### 4. Bubble Chart
+**Purpose:** Show relationship between unit price, quantity, and frequency
+
+**Recommended Libraries:**
+- **Recharts**: `<ScatterChart>` with size mapping
+- **Plotly.js**: Scatter plot with size parameter
+- **Nivo**: `<Bubble>` component
+
+**Example with Recharts:**
+```tsx
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
+<ResponsiveContainer width="100%" height={400}>
+  <ScatterChart>
+    <CartesianGrid />
+    <XAxis type="number" dataKey="unit_price" name="Unit Price" />
+    <YAxis type="number" dataKey="quantity" name="Quantity" />
+    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+    <Scatter name="Drugs" data={bubbleData} fill="#8884d8">
+      {bubbleData.map((entry, index) => (
+        <Cell key={`cell-${index}`} fill={getColorByFrequency(entry.frequency)} />
+      ))}
+    </Scatter>
+  </ScatterChart>
+</ResponsiveContainer>
+```
+
+### Use Cases
+
+1. **Cost Analysis Dashboard**
+   - Use all four charts together for comprehensive cost analysis
+   - Filter by department to analyze department-specific costs
+   - Use price range filters to focus on high-value or low-value drugs
+
+2. **Budget Planning**
+   - Use monthly trends to identify cost patterns
+   - Use top cost drivers to identify areas for cost optimization
+   - Use sunburst to understand cost distribution across departments
+
+3. **Drug Procurement Analysis**
+   - Use bubble chart to identify drugs with high frequency but low cost
+   - Use top cost drivers to prioritize procurement decisions
+   - Filter by category to analyze category-specific costs
+
+4. **Department Performance**
+   - Filter by specific departments to compare costs
+   - Use sunburst to see cost breakdown within departments
+   - Use trends to track department cost changes over time
+
+### Best Practices
+
+1. **Date Range Selection**
+   - Use appropriate date ranges (e.g., monthly for trends, yearly for comprehensive analysis)
+   - Consider data volume - very large date ranges may impact performance
+
+2. **Filtering**
+   - Start with broad filters and narrow down based on insights
+   - Use price range filters to focus on specific cost segments
+   - Combine multiple filters for targeted analysis
+
+3. **Performance**
+   - Cache responses for frequently accessed date ranges
+   - Consider pagination for very large datasets (future enhancement)
+
+4. **Visualization**
+   - Use consistent color schemes across charts
+   - Include tooltips with detailed information
+   - Make charts interactive for better user experience
+   - Responsive design for mobile devices
+
+---
 
