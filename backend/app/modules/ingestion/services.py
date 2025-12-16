@@ -196,7 +196,6 @@ class IngestionService(BaseService):
         
         return False
     
-    
     def ingest_file_from_path(self, file_path: str, file_year: Optional[int] = None) -> dict:
         """
         Ingest a file from a direct file path.

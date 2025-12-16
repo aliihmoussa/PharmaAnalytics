@@ -50,6 +50,41 @@ response = requests.get(url, params=params)
 print(response.json())
 ```
 
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Top Drugs"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/top-drugs`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+   | `limit` | `10` | Optional: Number of results (default: 10) |
+   | `category_id` | `5` | Optional: Filter by category |
+   | `department_id` | `3` | Optional: Filter by department |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request:**
+```
+GET http://localhost:5000/api/dashboard/top-drugs?start_date=2019-01-01&end_date=2019-12-31&limit=10&category_id=5&department_id=3
+```
+
+**Expected Response Status:** `200 OK`
+
 ### Query Parameters
 - **start_date** (required): Start date in YYYY-MM-DD format
 - **end_date** (required): End date in YYYY-MM-DD format (must be >= start_date)
@@ -167,6 +202,40 @@ response = requests.get(url, params=params)
 print(response.json())
 ```
 
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Drug Demand"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/drug-demand`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+   | `granularity` | `monthly` | Optional: 'daily', 'weekly', 'monthly' (default: 'daily') |
+   | `drug_code` | `DRUG001` | Optional: Filter by specific drug code |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request:**
+```
+GET http://localhost:5000/api/dashboard/drug-demand?start_date=2019-01-01&end_date=2019-12-31&granularity=monthly&drug_code=DRUG001
+```
+
+**Expected Response Status:** `200 OK`
+
 ### Query Parameters
 - **start_date** (required): Start date in YYYY-MM-DD format
 - **end_date** (required): End date in YYYY-MM-DD format (must be >= start_date)
@@ -281,6 +350,45 @@ params = {
 response = requests.get(url, params=params)
 print(response.json())
 ```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Summary Statistics"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/summary-stats`
+
+3. **Add query parameters (optional)**
+   - Go to the "Params" tab
+   - Add the following parameters (both are optional):
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Optional: Start date |
+   | `end_date` | `2019-12-31` | Optional: End date |
+
+   **Note:** If no parameters are provided, returns statistics for all time.
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request (with date range):**
+```
+GET http://localhost:5000/api/dashboard/summary-stats?start_date=2019-01-01&end_date=2019-12-31
+```
+
+**Example Postman Request (all time):**
+```
+GET http://localhost:5000/api/dashboard/summary-stats
+```
+
+**Expected Response Status:** `200 OK`
 
 ### Query Parameters
 - **start_date** (optional): Start date in YYYY-MM-DD format
@@ -402,6 +510,51 @@ response = requests.get(f"{base_url}/department", params=params)
 print("Department:", response.json())
 ```
 
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Chart Data - Trends" (or "Seasonal" or "Department")
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/chart-data/trends`
+     - Replace `trends` with `seasonal` or `department` for other chart types
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Requests:**
+
+**Trends Chart:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/trends?start_date=2019-01-01&end_date=2019-12-31
+```
+
+**Seasonal Chart:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/seasonal?start_date=2019-01-01&end_date=2019-12-31
+```
+
+**Department Chart:**
+```
+GET http://localhost:5000/api/dashboard/chart-data/department?start_date=2019-01-01&end_date=2019-12-31
+```
+
+**Expected Response Status:** `200 OK`
+
 ### Query Parameters
 - **start_date** (required): Start date in YYYY-MM-DD format
 - **end_date** (required): End date in YYYY-MM-DD format
@@ -490,6 +643,39 @@ curl "http://localhost:5000/api/dashboard/department-performance?start_date=2019
 # Custom limit
 curl "http://localhost:5000/api/dashboard/department-performance?start_date=2019-01-01&end_date=2019-12-31&limit=20"
 ```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Department Performance"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/department-performance`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+   | `limit` | `20` | Optional: Number of departments (default: 10) |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request:**
+```
+GET http://localhost:5000/api/dashboard/department-performance?start_date=2019-01-01&end_date=2019-12-31&limit=20
+```
+
+**Expected Response Status:** `200 OK`
 
 ### Using Python requests
 ```python
@@ -611,6 +797,40 @@ curl "http://localhost:5000/api/dashboard/year-comparison?metric_type=transactio
 # For specific drug
 curl "http://localhost:5000/api/dashboard/year-comparison?metric_type=quantity&drug_code=DRUG001&start_year=2019&end_year=2022"
 ```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Year Comparison"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/year-comparison`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `metric_type` | `quantity` | Optional: 'quantity', 'value', 'transactions' (default: 'quantity') |
+   | `drug_code` | `DRUG001` | Optional: Filter by specific drug code |
+   | `start_year` | `2019` | Optional: Starting year (default: 2019) |
+   | `end_year` | `2022` | Optional: Ending year (default: 2022) |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request:**
+```
+GET http://localhost:5000/api/dashboard/year-comparison?metric_type=quantity&drug_code=DRUG001&start_year=2019&end_year=2022
+```
+
+**Expected Response Status:** `200 OK`
 
 ### Using Python requests
 ```python
@@ -736,6 +956,39 @@ curl "http://localhost:5000/api/dashboard/category-analysis?start_date=2019-01-0
 # Quarterly granularity
 curl "http://localhost:5000/api/dashboard/category-analysis?start_date=2019-01-01&end_date=2019-12-31&granularity=quarterly"
 ```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Category Analysis"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/category-analysis`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+   | `granularity` | `monthly` | Optional: 'monthly' or 'quarterly' (default: 'monthly') |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request:**
+```
+GET http://localhost:5000/api/dashboard/category-analysis?start_date=2019-01-01&end_date=2019-12-31&granularity=monthly
+```
+
+**Expected Response Status:** `200 OK`
 
 ### Using Python requests
 ```python
@@ -875,6 +1128,49 @@ curl "http://localhost:5000/api/dashboard/patient-demographics?start_date=2019-0
 # Group by bed
 curl "http://localhost:5000/api/dashboard/patient-demographics?start_date=2019-01-01&end_date=2019-12-31&group_by=bed"
 ```
+
+### Using Postman
+
+**Step-by-step instructions:**
+
+1. **Create a new request**
+   - Click "New" → "HTTP Request"
+   - Name it: "Get Patient Demographics"
+
+2. **Set the HTTP method and URL**
+   - Method: `GET`
+   - URL: `http://localhost:5000/api/dashboard/patient-demographics`
+
+3. **Add query parameters**
+   - Go to the "Params" tab
+   - Add the following parameters:
+
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `start_date` | `2019-01-01` | Required: Start date |
+   | `end_date` | `2019-12-31` | Required: End date |
+   | `group_by` | `age` | Optional: 'age', 'room', or 'bed' (default: 'age') |
+
+4. **Send the request**
+   - Click "Send"
+   - View the response in the "Body" tab
+
+**Example Postman Request (group by age):**
+```
+GET http://localhost:5000/api/dashboard/patient-demographics?start_date=2019-01-01&end_date=2019-12-31&group_by=age
+```
+
+**Example Postman Request (group by room):**
+```
+GET http://localhost:5000/api/dashboard/patient-demographics?start_date=2019-01-01&end_date=2019-12-31&group_by=room
+```
+
+**Example Postman Request (group by bed):**
+```
+GET http://localhost:5000/api/dashboard/patient-demographics?start_date=2019-01-01&end_date=2019-12-31&group_by=bed
+```
+
+**Expected Response Status:** `200 OK`
 
 ### Using Python requests
 ```python
@@ -1407,4 +1703,148 @@ export default function TopDrugsChart({ startDate, endDate }: { startDate: strin
    - Category Analysis: `monthly`, `quarterly`
 9. **Group By Options**: Patient Demographics supports: `age`, `room`, `bed`
 10. **Metric Types**: Year Comparison supports: `quantity`, `value`, `transactions`
+
+---
+
+## Postman Quick Reference
+
+### Setting Up Postman Collection
+
+**Recommended Setup:**
+
+1. **Create a new Collection**
+   - Click "New" → "Collection"
+   - Name it: "PharmaAnalytics Dashboard API"
+   - Add description: "Dashboard analytics endpoints for PharmaAnalytics"
+
+2. **Set Collection Variables**
+   - Go to Collection → Variables tab
+   - Add the following variables:
+
+   | Variable | Initial Value | Current Value |
+   |----------|---------------|---------------|
+   | `base_url` | `http://localhost:5000/api/dashboard` | `http://localhost:5000/api/dashboard` |
+   | `start_date` | `2019-01-01` | `2019-01-01` |
+   | `end_date` | `2019-12-31` | `2019-12-31` |
+
+3. **Use Variables in Requests**
+   - In request URLs, use: `{{base_url}}/top-drugs`
+   - In query parameters, use: `{{start_date}}` and `{{end_date}}`
+
+### All Endpoints Summary
+
+| Endpoint | Method | Required Params | Optional Params |
+|----------|--------|----------------|-----------------|
+| `/top-drugs` | GET | `start_date`, `end_date` | `limit`, `category_id`, `department_id` |
+| `/drug-demand` | GET | `start_date`, `end_date` | `granularity`, `drug_code` |
+| `/summary-stats` | GET | None | `start_date`, `end_date` |
+| `/chart-data/{chart_type}` | GET | `start_date`, `end_date` | None |
+| `/department-performance` | GET | `start_date`, `end_date` | `limit` |
+| `/year-comparison` | GET | None | `metric_type`, `drug_code`, `start_year`, `end_year` |
+| `/category-analysis` | GET | `start_date`, `end_date` | `granularity` |
+| `/patient-demographics` | GET | `start_date`, `end_date` | `group_by` |
+
+### Common Postman Workflows
+
+**1. Testing All Endpoints Sequentially:**
+
+Create a Postman Collection Runner:
+- Create a collection with all 8 endpoints
+- Use Collection Runner to execute all requests
+- View results in the Runner summary
+
+**2. Testing with Different Date Ranges:**
+
+Use Environment Variables:
+- Create environments: "2019", "2020", "2021", "2022"
+- Set `start_date` and `end_date` per environment
+- Switch environments to test different time periods
+
+**3. Testing Error Cases:**
+
+Create test requests for:
+- Missing required parameters
+- Invalid date formats
+- Invalid date ranges (end_date < start_date)
+- Invalid parameter values (e.g., invalid granularity)
+
+**Example Error Test Request:**
+```
+GET {{base_url}}/top-drugs
+# Missing start_date and end_date - should return 400 Bad Request
+```
+
+### Postman Pre-request Scripts (Optional)
+
+Add this script to your collection to automatically set date ranges:
+
+```javascript
+// Set default date range if not provided
+if (!pm.environment.get("start_date")) {
+    pm.environment.set("start_date", "2019-01-01");
+}
+if (!pm.environment.get("end_date")) {
+    pm.environment.set("end_date", "2019-12-31");
+}
+```
+
+### Postman Tests (Optional)
+
+Add this test script to validate responses:
+
+```javascript
+// Test that response is successful
+pm.test("Status code is 200", function () {
+    pm.response.to.have.status(200);
+});
+
+// Test that response has data
+pm.test("Response has data", function () {
+    var jsonData = pm.response.json();
+    pm.expect(jsonData).to.have.property('data');
+});
+
+// Test response time
+pm.test("Response time is less than 2000ms", function () {
+    pm.expect(pm.response.responseTime).to.be.below(2000);
+});
+```
+
+### Importing Postman Collection
+
+If you have a Postman Collection JSON file:
+
+1. Open Postman
+2. Click "Import" button (top left)
+3. Select "File" tab
+4. Choose your collection JSON file
+5. Click "Import"
+
+**Collection Structure Example:**
+```json
+{
+  "info": {
+    "name": "PharmaAnalytics Dashboard API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Top Drugs",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/top-drugs?start_date={{start_date}}&end_date={{end_date}}&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["top-drugs"],
+          "query": [
+            {"key": "start_date", "value": "{{start_date}}"},
+            {"key": "end_date", "value": "{{end_date}}"},
+            {"key": "limit", "value": "10"}
+          ]
+        }
+      }
+    }
+  ]
+}
+```
 

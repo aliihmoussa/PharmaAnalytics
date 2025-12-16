@@ -1,5 +1,9 @@
 # Ingestion API - Complete Examples
 
+> **📊 Uploading Excel Files?**  
+> For comprehensive Excel upload documentation with detailed examples, column requirements, and best practices, see **[EXCEL_UPLOAD_API.md](./EXCEL_UPLOAD_API.md)**  
+> Quick reference: **[EXCEL_UPLOAD_QUICK_REFERENCE.md](./EXCEL_UPLOAD_QUICK_REFERENCE.md)**
+
 ## Base URL
 ```
 http://localhost:5000/api/ingestion

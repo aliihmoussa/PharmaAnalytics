@@ -33,9 +33,17 @@ class TopDrugsRequest(BaseModel):
     @classmethod
     def from_query_params(cls, params):
         """Create instance from Flask query parameters."""
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not start_date_str:
+            raise ValueError("start_date is required")
+        if not end_date_str:
+            raise ValueError("end_date is required")
+        
         return cls(
-            start_date=parse_date(params.get('start_date')),
-            end_date=parse_date(params.get('end_date')),
+            start_date=parse_date(start_date_str),
+            end_date=parse_date(end_date_str),
             limit=int(params.get('limit', 10)),
             category_id=int(params['category_id']) if params.get('category_id') else None,
             department_id=int(params['department_id']) if params.get('department_id') else None
@@ -52,6 +60,14 @@ class DrugDemandRequest(BaseModel):
     @classmethod
     def from_query_params(cls, params):
         """Create instance from Flask query parameters."""
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not start_date_str:
+            raise ValueError("start_date is required")
+        if not end_date_str:
+            raise ValueError("end_date is required")
+        
         granularity_str = params.get('granularity', 'daily').lower()
         try:
             granularity = GranularityEnum(granularity_str)
@@ -59,8 +75,8 @@ class DrugDemandRequest(BaseModel):
             granularity = GranularityEnum.DAILY
         
         return cls(
-            start_date=parse_date(params.get('start_date')),
-            end_date=parse_date(params.get('end_date')),
+            start_date=parse_date(start_date_str),
+            end_date=parse_date(end_date_str),
             drug_code=params.get('drug_code'),
             granularity=granularity
         )
@@ -90,9 +106,17 @@ class ChartDataRequest(BaseModel):
     @classmethod
     def from_query_params(cls, params, chart_type: str):
         """Create instance from Flask query parameters."""
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not start_date_str:
+            raise ValueError("start_date is required")
+        if not end_date_str:
+            raise ValueError("end_date is required")
+        
         return cls(
-            start_date=parse_date(params.get('start_date')),
-            end_date=parse_date(params.get('end_date')),
+            start_date=parse_date(start_date_str),
+            end_date=parse_date(end_date_str),
             chart_type=chart_type,
             filters={}
         )
@@ -154,9 +178,17 @@ class CategoryAnalysisRequest(BaseModel):
     @classmethod
     def from_query_params(cls, params):
         """Create instance from Flask query parameters."""
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not start_date_str:
+            raise ValueError("start_date is required")
+        if not end_date_str:
+            raise ValueError("end_date is required")
+        
         return cls(
-            start_date=parse_date(params.get('start_date')),
-            end_date=parse_date(params.get('end_date')),
+            start_date=parse_date(start_date_str),
+            end_date=parse_date(end_date_str),
             granularity=params.get('granularity', 'monthly')
         )
 
@@ -178,9 +210,17 @@ class PatientDemographicsRequest(BaseModel):
     @classmethod
     def from_query_params(cls, params):
         """Create instance from Flask query parameters."""
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
+        
+        if not start_date_str:
+            raise ValueError("start_date is required")
+        if not end_date_str:
+            raise ValueError("end_date is required")
+        
         return cls(
-            start_date=parse_date(params.get('start_date')),
-            end_date=parse_date(params.get('end_date')),
+            start_date=parse_date(start_date_str),
+            end_date=parse_date(end_date_str),
             group_by=params.get('group_by', 'age')
         )
 

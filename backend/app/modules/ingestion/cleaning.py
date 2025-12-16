@@ -241,7 +241,6 @@ def clean_excel_dataframe(df: pl.DataFrame) -> pl.DataFrame:
 def coerce_data_types(df: pl.DataFrame) -> Tuple[pl.DataFrame, Dict]:
     """
     Coerce data types to expected formats.
-    Includes date standardization using standardize_date function.
     
     Args:
         df: Polars DataFrame
@@ -249,213 +248,103 @@ def coerce_data_types(df: pl.DataFrame) -> Tuple[pl.DataFrame, Dict]:
     Returns:
         Tuple of (cleaned DataFrame, conversion statistics)
     """
-    cleaned_df = df.clone()
-    conversion_stats = {
-        'numeric_conversions': 0,
-        'date_conversions': 0,
-        'integer_validations': 0,
-        'errors': []
-    }
-    
-    # Standardize dates early in the cleaning process
     from backend.app.modules.ingestion.transformation import standardize_date, parse_date
     
-    # Handle AD DATE separately - it's often corrupted with T.P values
-    ad_date_fields = ['AD DATE', 'admission_date']
-    for col in ad_date_fields:
+    cleaned_df = df.clone()
+    conversion_stats = {'numeric_conversions': 0, 'date_conversions': 0, 'integer_validations': 0, 'errors': []}
+    
+    # Helper functions
+    def clean_ad_date(value):
+        """Clean corrupted AD DATE values."""
+        if not value:
+            return None
+        value_str = str(value).strip()
+        if re.match(r'^\d+\s+(00/00/00|0000/00/00|0000-00-00)$', value_str):
+            return None
+        return standardize_date(value_str)
+    
+    def normalize_doc_id(value):
+        """Normalize doc_id to integer."""
+        if not value:
+            return None
+        value_str = str(value).strip()
+        try:
+            return int(float(value_str))
+        except (ValueError, TypeError):
+            match = re.search(r'\d+', value_str)
+            return int(match.group()) if match else abs(hash(value_str)) % (10**9)
+    
+    def normalize_bed_number(value):
+        """Convert Arabic bed letters to English or preserve numbers."""
+        if not value:
+            return None
+        value_str = str(value).strip()
+        arabic_map = {'أ': 'A', 'ا': 'A', 'ب': 'B'}
+        for arabic, english in arabic_map.items():
+            if arabic in value_str:
+                return english
+        if value_str.upper() in ['A', 'B']:
+            return value_str.upper()
+        try:
+            return str(int(float(value_str)))
+        except (ValueError, TypeError):
+            return value_str
+    
+    # Process date fields
+    for col in ['AD DATE', 'admission_date']:
+        if col in cleaned_df.columns:
+            cleaned_df = cleaned_df.with_columns([
+                pl.col(col).map_elements(clean_ad_date, return_dtype=pl.Utf8).alias(col)
+            ]).with_columns([
+                pl.col(col).map_elements(lambda x: parse_date(x) if x else None, return_dtype=pl.Datetime).alias(col)
+            ])
+            conversion_stats['date_conversions'] += 1
+    
+    for col in ['DATE', 'transaction_date']:
+        if col in cleaned_df.columns:
+            cleaned_df = cleaned_df.with_columns([
+                pl.col(col).map_elements(standardize_date, return_dtype=pl.Utf8).alias(col)
+            ]).with_columns([
+                pl.col(col).map_elements(lambda x: parse_date(x) if x else None, return_dtype=pl.Datetime).alias(col)
+            ])
+            conversion_stats['date_conversions'] += 1
+    
+    # Process bed numbers
+    for col in ['U', 'bed_number']:
+        if col in cleaned_df.columns:
+            cleaned_df = cleaned_df.with_columns([
+                pl.col(col).map_elements(normalize_bed_number, return_dtype=pl.Utf8).alias(col)
+            ])
+            conversion_stats['integer_validations'] += 1
+    
+    # Process integer fields
+    for col in ['LINE', 'CAT', 'C.R', 'MOV #', 'C.S', 'QTY', 'R']:
+        if col in cleaned_df.columns:
+            cleaned_df = cleaned_df.with_columns([
+                pl.col(col).cast(pl.Int64, strict=False).alias(col)
+            ])
+            conversion_stats['integer_validations'] += 1
+    
+    # Process doc_id
+    for col in ['DOC', 'doc_id']:
+        if col in cleaned_df.columns:
+            cleaned_df = cleaned_df.with_columns([
+                pl.col(col).map_elements(normalize_doc_id, return_dtype=pl.Int64).alias(col)
+            ])
+            conversion_stats['integer_validations'] += 1
+    
+    # Process price fields
+    for col in ['U.P', 'T.P', 'unit_price', 'total_price']:
         if col in cleaned_df.columns:
             try:
-                def clean_ad_date(value):
-                    """Clean corrupted AD DATE values like '7412 00/00/00'."""
-                    if value is None:
-                        return None
-                    value_str = str(value).strip()
-                    if not value_str:
-                        return None
-                    
-                    # Check if it's corrupted (contains number followed by 00/00/00)
-                    # Pattern: "number 00/00/00" or "number 0000/00/00"
-                    corrupted_pattern = r'^\d+\s+(00/00/00|0000/00/00|0000-00-00)$'
-                    if re.match(corrupted_pattern, value_str):
-                        # This is corrupted - return None (admission date is optional)
-                        logger.debug(f"Found corrupted AD DATE: {value_str}, setting to None")
-                        return None
-                    
-                    # Try to standardize the date
-                    return standardize_date(value_str)
-                
-                # First clean corrupted values
                 cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).map_elements(
-                        lambda x: clean_ad_date(x),
-                        return_dtype=pl.Utf8
-                    ).alias(col)
+                    pl.col(col).str.replace_all(r'[^\d.]', '').cast(pl.Float64, strict=False).alias(col)
                 ])
-                # Then parse to datetime if standardized successfully
+            except (AttributeError, TypeError):
                 cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).map_elements(
-                        lambda x: parse_date(x) if x else None,
-                        return_dtype=pl.Datetime
-                    ).alias(col)
+                    pl.col(col).cast(pl.Float64, strict=False).alias(col)
                 ])
-                conversion_stats['date_conversions'] += 1
-            except Exception as e:
-                conversion_stats['errors'].append(f"Error standardizing AD DATE in {col}: {e}")
-                logger.warning(f"Error standardizing AD DATE in {col}: {e}")
-    
-    # Handle regular DATE fields
-    date_fields = ['DATE', 'transaction_date']
-    for col in date_fields:
-        if col in cleaned_df.columns:
-            try:
-                # First standardize dates to YYYY-MM-DD format
-                cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).map_elements(
-                        lambda x: standardize_date(x),
-                        return_dtype=pl.Utf8
-                    ).alias(col)
-                ])
-                # Then parse to datetime if standardized successfully
-                cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).map_elements(
-                        lambda x: parse_date(x) if x else None,
-                        return_dtype=pl.Datetime
-                    ).alias(col)
-                ])
-                conversion_stats['date_conversions'] += 1
-            except Exception as e:
-                conversion_stats['errors'].append(f"Error standardizing dates in {col}: {e}")
-                logger.warning(f"Error standardizing dates in {col}: {e}")
-    
-    # Handle bed_number (U column) - convert Arabic letters to English
-    # Arabic أ (alif) -> A, ب (ba) -> B
-    # Also handles numeric bed numbers (108, 112, etc.)
-    bed_number_cols = ['U', 'bed_number']
-    for col in bed_number_cols:
-        if col in cleaned_df.columns:
-            try:
-                def normalize_bed_number(value):
-                    """Convert Arabic bed letters to English equivalents, or preserve numbers."""
-                    if value is None:
-                        return None
-                    value_str = str(value).strip()
-                    if not value_str:
-                        return None
-                    
-                    # Map Arabic letters to English
-                    arabic_to_english = {
-                        'أ': 'A',  # Arabic alif
-                        'ا': 'A',  # Arabic alif (isolated form)
-                        'ب': 'B',  # Arabic ba
-                    }
-                    
-                    # Check if it's an Arabic letter
-                    for arabic, english in arabic_to_english.items():
-                        if arabic in value_str:
-                            return english
-                    
-                    # If it's already English A/B, keep it uppercase
-                    if value_str.upper() in ['A', 'B']:
-                        return value_str.upper()
-                    
-                    # If it's a number, keep it as string (bed_number is now String in DB)
-                    try:
-                        num_value = int(float(value_str))  # Handle "108.0" type values
-                        return str(num_value)  # Return as string to match database type
-                    except (ValueError, TypeError):
-                        # If not a number, return as string (preserve original)
-                        return value_str
-                
-                cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).map_elements(normalize_bed_number, return_dtype=pl.Utf8).alias(col)
-                ])
-                conversion_stats['integer_validations'] += 1
-            except Exception as e:
-                conversion_stats['errors'].append(f"Error normalizing bed_number in {col}: {e}")
-                logger.warning(f"Error normalizing bed_number in {col}: {e}")
-    
-    # Integer fields that should be integers (excluding DOC and U which need special handling)
-    integer_fields = ['LINE', 'CAT', 'C.R', 'MOV #', 'C.S', 'QTY', 'R']
-    
-    for col in cleaned_df.columns:
-        if col in integer_fields:
-            try:
-                # Try to convert to integer, handling numeric strings
-                cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).cast(pl.Int64, strict=False).alias(col)
-                ])
-                conversion_stats['integer_validations'] += 1
-            except Exception as e:
-                conversion_stats['errors'].append(f"Error converting {col} to integer: {e}")
-        
-        # Handle DOC (doc_id) - convert to integer (required field)
-        # Make extraction more robust - preserve records even if conversion fails
-        elif col in ['DOC', 'doc_id']:
-            try:
-                # Log sample values before normalization
-                sample_values = cleaned_df[col].head(5).to_list()
-                null_count_before = cleaned_df[col].null_count()
-                logger.info(f"Normalizing {col}: {null_count_before} null values, sample values: {sample_values}")
-                
-                def normalize_doc_id(value):
-                    """Normalize doc_id to integer, with fallback to preserve records."""
-                    if value is None:
-                        return None
-                    value_str = str(value).strip()
-                    if not value_str:
-                        return None
-                    
-                    # Try to convert to integer directly
-                    try:
-                        return int(float(value_str))  # Handle "15979.0" type values
-                    except (ValueError, TypeError):
-                        # If conversion fails, try to extract numeric part
-                        import re
-                        match = re.search(r'\d+', value_str)
-                        if match:
-                            return int(match.group())
-                        # If no number found, use hash as fallback to preserve record
-                        # This ensures records aren't lost due to unexpected doc_id format
-                        hash_value = abs(hash(value_str)) % (10**9)  # Keep reasonable size
-                        logger.debug(f"doc_id '{value_str}' converted to hash: {hash_value}")
-                        return hash_value
-                
-                cleaned_df = cleaned_df.with_columns([
-                    pl.col(col).map_elements(normalize_doc_id, return_dtype=pl.Int64).alias(col)
-                ])
-                
-                # Log results after normalization
-                null_count_after = cleaned_df[col].null_count()
-                sample_values_after = cleaned_df[col].head(5).to_list()
-                logger.info(f"After normalizing {col}: {null_count_after} null values, sample values: {sample_values_after}")
-                
-                conversion_stats['integer_validations'] += 1
-            except Exception as e:
-                conversion_stats['errors'].append(f"Error normalizing doc_id in {col}: {e}")
-                logger.error(f"Error normalizing doc_id in {col}: {e}", exc_info=True)
-                # Try to preserve original values as fallback
-                logger.warning(f"Attempting to preserve {col} values as-is")
-        
-        # Handle numeric strings in numeric columns
-        elif col in ['U.P', 'T.P', 'unit_price', 'total_price']:
-            try:
-                # Convert string numbers to float
-                # Try string operations first - if it works, it's a string column
-                try:
-                    cleaned_df = cleaned_df.with_columns([
-                        pl.col(col).str.replace_all(r'[^\d.]', '').cast(pl.Float64, strict=False).alias(col)
-                    ])
-                except (AttributeError, TypeError):
-                    # Column doesn't support string operations, cast directly
-                    cleaned_df = cleaned_df.with_columns([
-                        pl.col(col).cast(pl.Float64, strict=False).alias(col)
-                    ])
-                conversion_stats['numeric_conversions'] += 1
-            except Exception as e:
-                conversion_stats['errors'].append(f"Error converting {col} to float: {e}")
-    
-    logger.info(f"Data type coercion: {conversion_stats['numeric_conversions']} numeric, "
-                f"{conversion_stats['integer_validations']} integer conversions")
+            conversion_stats['numeric_conversions'] += 1
     
     return cleaned_df, conversion_stats
 
@@ -472,242 +361,104 @@ def validate_data_integrity(df: pl.DataFrame) -> Tuple[pl.DataFrame, Dict]:
     """
     validated_df = df.clone()
     original_rows = len(validated_df)
-    validation_results = {
-        'invalid_records': 0,
-        'invalid_reasons': {},
-        'suspicious_patterns': []
-    }
+    validation_results = {'invalid_records': 0, 'invalid_reasons': {}, 'suspicious_patterns': []}
     
-    # Validate required fields are not null
-    # Only validate truly critical fields - prices can be calculated
-    # Map both original and transformed column names
-    # NOTE: User requested no validation on DOC column - making it optional
-    required_field_groups = [
-        # DOC/doc_id - REMOVED from required validation per user request
-        # Will generate sequential IDs if missing
-        ['DATE', 'transaction_date'],
-        ['MOV #', 'MOV#', 'movement_number'],  # Added MOV# without space
-        ['CODE', 'drug_code'],
-        ['ARTICLE', 'drug_name'],
-        ['QTY', 'quantity']
-        # NOTE: Removed U.P and T.P from required validation - they can be calculated
-        # If missing, they'll be calculated in calculate_derived_fields
+    # Generate doc_id if missing
+    doc_cols = ['DOC', 'doc_id']
+    doc_col = next((col for col in doc_cols if col in validated_df.columns), None)
+    if doc_col and validated_df[doc_col].null_count() == original_rows:
+        validated_df = validated_df.with_columns([(pl.int_range(pl.len()) + 1).alias(doc_col)])
+    elif not doc_col:
+        validated_df = validated_df.with_columns([(pl.int_range(pl.len()) + 1).alias('doc_id')])
+    
+    # Validate required fields
+    required_fields = [
+        (['DATE', 'transaction_date'], 'date'),
+        (['MOV #', 'MOV#', 'movement_number'], 'mov'),
+        (['CODE', 'drug_code'], 'code'),
+        (['ARTICLE', 'drug_name'], 'article'),
+        (['QTY', 'quantity'], 'qty')
     ]
     
-    logger.info(f"validate_data_integrity: Starting with {original_rows} records")
-    logger.info(f"validate_data_integrity: Available columns: {list(validated_df.columns)}")
-    
-    # Handle DOC/doc_id separately - generate if missing (per user request: no validation on DOC column)
-    doc_id_cols = ['DOC', 'doc_id']
-    doc_id_col = None
-    for col in doc_id_cols:
-        if col in validated_df.columns:
-            doc_id_col = col
-            break
-    
-    if doc_id_col:
-        null_count = validated_df[doc_id_col].null_count()
-        logger.info(f"DOC/doc_id column found: {doc_id_col}, {null_count} null values out of {original_rows}")
-        if null_count == original_rows:
-            logger.warning(f"All {original_rows} records have null {doc_id_col}, generating sequential IDs")
-            validated_df = validated_df.with_columns([
-                (pl.int_range(pl.len()) + 1).alias(doc_id_col)
-            ])
-            logger.info(f"Generated sequential doc_id values for {len(validated_df)} records")
-    else:
-        logger.warning(f"DOC/doc_id column not found in dataframe, generating sequential IDs")
-        validated_df = validated_df.with_columns([
-            (pl.int_range(pl.len()) + 1).alias('doc_id')
-        ])
-        logger.info(f"Generated sequential doc_id values for {len(validated_df)} records")
-    
-    # Track missing field groups (configuration errors)
-    missing_field_groups = []
-    
-    for field_group in required_field_groups:
-        # Find which field name exists in the dataframe
-        field_to_check = None
-        for field_name in field_group:
-            if field_name in validated_df.columns:
-                field_to_check = field_name
-                break
+    for field_group, field_key in required_fields:
+        field = next((f for f in field_group if f in validated_df.columns), None)
+        if not field:
+            validation_results['invalid_reasons'][f'{field_key}_missing'] = original_rows
+            continue
         
-        if field_to_check:
-            before = len(validated_df)
-            null_count = validated_df[field_to_check].null_count()
-            logger.info(f"Validation: Checking {field_to_check} - {null_count} null values out of {before} records")
-            
-            if null_count == before:
-                logger.error(f"CRITICAL: All {before} records have null {field_to_check}!")
-                logger.error(f"This suggests a data extraction or column mapping issue!")
-                # Don't filter all records - this is likely a data issue, not validation
-                # Instead, log as error and continue (let database constraints handle it)
-                validation_results['invalid_reasons'][f'{field_group[0]}_all_null'] = before
-            else:
-                # Only filter records where this field is null
-                validated_df = validated_df.filter(pl.col(field_to_check).is_not_null())
-                removed = before - len(validated_df)
-                if removed > 0:
-                    validation_results['invalid_records'] += removed
-                    # Use the first field name for reporting
-                    validation_results['invalid_reasons'][f'{field_group[0]}_null'] = removed
-                    logger.warning(f"Validation: Removed {removed} records with null {field_to_check} ({field_group[0]})")
-        else:
-            missing_field_groups.append(field_group)
-            logger.error(f"CRITICAL: Required field group {field_group} not found in dataframe columns!")
-            logger.error(f"Available columns: {list(validated_df.columns)}")
-            # This is a configuration/mapping error - don't filter, but log it
-            validation_results['invalid_reasons'][f'{field_group[0]}_missing'] = original_rows
-    
-    # If we have missing field groups, this is a critical issue
-    if missing_field_groups:
-        logger.error(f"CRITICAL: {len(missing_field_groups)} required field groups are missing!")
-        logger.error(f"Missing groups: {missing_field_groups}")
-        logger.error(f"This likely means column mapping failed. Check FIELD_MAPPINGS in schema.py")
-        # Don't filter all records - let the user know about the mapping issue
-    
-    # Validate date ranges (2010-2030)
-    # Note: AD DATE is optional, so don't filter records if it's invalid
-    required_date_fields = ['DATE', 'transaction_date']
-    optional_date_fields = ['AD DATE', 'admission_date']
-    
-    # Validate required date fields (DATE/transaction_date)
-    # Make date validation more lenient - only filter if truly invalid
-    for field in required_date_fields:
-        if field in validated_df.columns:
-            try:
-                # Check if field is a date type
-                field_dtype = validated_df[field].dtype
-                
-                # If it's not a date type yet, it might not have been parsed correctly
-                # Don't filter - let it pass through and handle in database
-                if not isinstance(field_dtype, (pl.Datetime, pl.Date)):
-                    logger.warning(f"Date field {field} is not a date type ({field_dtype}), skipping date range validation")
-                    # Don't filter - just log the issue
-                    continue
-                
-                # Only filter dates that are explicitly out of range (not null)
-                # Null dates are already filtered by required field check above
-                before = len(validated_df)
-                validated_df = validated_df.filter(
-                    pl.col(field).is_null() |  # Keep nulls (already filtered above)
-                    ((pl.col(field) >= pl.date(2010, 1, 1)) &
-                     (pl.col(field) <= pl.date(2030, 12, 31)))
-                )
-                removed = before - len(validated_df)
-                if removed > 0:
-                    validation_results['invalid_records'] += removed
-                    validation_results['invalid_reasons'][f'{field}_out_of_range'] = removed
-                    logger.warning(f"Filtered {removed} records with {field} outside 2010-2030 range")
-            except Exception as e:
-                logger.warning(f"Error validating date field {field}: {e}")
-                # Don't filter on error - let records pass through
-    
-    # For optional date fields (AD DATE), just log issues but don't filter records
-    for field in optional_date_fields:
-        if field in validated_df.columns:
-            try:
-                # Count invalid dates but don't filter
-                invalid_dates = validated_df.filter(
-                    pl.col(field).is_not_null() &
-                    ~((pl.col(field) >= pl.date(2010, 1, 1)) &
-                      (pl.col(field) <= pl.date(2030, 12, 31)))
-                )
-                if len(invalid_dates) > 0:
-                    logger.info(f"Found {len(invalid_dates)} records with invalid {field} (will be set to NULL)")
-                    # Set invalid dates to NULL instead of filtering
-                    validated_df = validated_df.with_columns([
-                        pl.when(
-                            pl.col(field).is_not_null() &
-                            ~((pl.col(field) >= pl.date(2010, 1, 1)) &
-                              (pl.col(field) <= pl.date(2030, 12, 31)))
-                        )
-                        .then(None)
-                        .otherwise(pl.col(field))
-                        .alias(field)
-                    ])
-            except Exception as e:
-                logger.warning(f"Error validating optional date field {field}: {e}")
-    
-    # Note: Negative prices and quantities are kept as they represent important transaction data
-    # (e.g., returns, refunds, adjustments)
-    
-    # Validate quantity is not zero (zero quantities are invalid, but negative quantities are kept)
-    if 'QTY' in validated_df.columns or 'quantity' in validated_df.columns:
-        qty_field = 'QTY' if 'QTY' in validated_df.columns else 'quantity'
-        
-        # Check if field is numeric, if not try to convert it
-        try:
-            field_dtype = validated_df[qty_field].dtype
-            if not isinstance(field_dtype, (pl.Int64, pl.Int32, pl.Float64, pl.Float32)):
-                logger.info(f"Converting {qty_field} to numeric before validation (current type: {field_dtype})")
-                # Try to convert to numeric, handling strings
-                validated_df = validated_df.with_columns([
-                    pl.col(qty_field).cast(pl.Float64, strict=False).alias(qty_field)
-                ])
-        except Exception as e:
-            logger.warning(f"Could not check/convert {qty_field} type: {e}")
-        
-        # Now filter zero quantities (but keep nulls and negative values)
         before = len(validated_df)
-        try:
-            validated_df = validated_df.filter(
-                pl.col(qty_field).is_null() | (pl.col(qty_field) != 0)
-            )
-        except Exception as e:
-            logger.error(f"Error filtering zero quantities: {e}")
-            logger.warning(f"Skipping quantity validation due to type error - field may still be string")
-            # Don't filter if we can't compare - preserve records
-            pass
+        null_count = validated_df[field].null_count()
+        
+        if null_count == before:
+            validation_results['invalid_reasons'][f'{field_key}_all_null'] = before
         else:
+            validated_df = validated_df.filter(pl.col(field).is_not_null())
             removed = before - len(validated_df)
             if removed > 0:
                 validation_results['invalid_records'] += removed
-                validation_results['invalid_reasons'][f'{qty_field}_zero'] = removed
-                logger.warning(f"Removed {removed} records with zero quantity")
+                validation_results['invalid_reasons'][f'{field_key}_null'] = removed
     
-    # Check for suspicious patterns (very high quantities/prices)
-    # Only check if fields are numeric
-    if 'QTY' in validated_df.columns or 'quantity' in validated_df.columns:
-        qty_field = 'QTY' if 'QTY' in validated_df.columns else 'quantity'
-        try:
-            field_dtype = validated_df[qty_field].dtype
-            if isinstance(field_dtype, (pl.Int64, pl.Int32, pl.Float64, pl.Float32)):
-                suspicious_qty = validated_df.filter(pl.col(qty_field).abs() > 10000)
-                if len(suspicious_qty) > 0:
-                    validation_results['suspicious_patterns'].append({
-                        'type': 'high_quantity',
-                        'count': len(suspicious_qty),
-                        'max_value': validated_df[qty_field].max()
-                    })
-        except Exception as e:
-            logger.debug(f"Could not check suspicious quantities: {e}")
+    # Validate date ranges
+    for field in ['DATE', 'transaction_date']:
+        if field in validated_df.columns and isinstance(validated_df[field].dtype, (pl.Datetime, pl.Date)):
+            before = len(validated_df)
+            validated_df = validated_df.filter(
+                pl.col(field).is_null() |
+                ((pl.col(field) >= pl.date(2010, 1, 1)) & (pl.col(field) <= pl.date(2030, 12, 31)))
+            )
+            removed = before - len(validated_df)
+            if removed > 0:
+                validation_results['invalid_records'] += removed
+                validation_results['invalid_reasons'][f'{field}_out_of_range'] = removed
     
-    if 'T.P' in validated_df.columns or 'total_price' in validated_df.columns:
-        price_field = 'T.P' if 'T.P' in validated_df.columns else 'total_price'
-        try:
-            field_dtype = validated_df[price_field].dtype
-            if isinstance(field_dtype, (pl.Int64, pl.Int32, pl.Float64, pl.Float32)):
-                suspicious_price = validated_df.filter(pl.col(price_field) > 100000)
-                if len(suspicious_price) > 0:
-                    validation_results['suspicious_patterns'].append({
-                        'type': 'high_price',
-                        'count': len(suspicious_price),
-                        'max_value': validated_df[price_field].max()
-                    })
-        except Exception as e:
-            logger.debug(f"Could not check suspicious prices: {e}")
+    # Set invalid optional dates to NULL
+    for field in ['AD DATE', 'admission_date']:
+        if field in validated_df.columns and isinstance(validated_df[field].dtype, (pl.Datetime, pl.Date)):
+            validated_df = validated_df.with_columns([
+                pl.when(
+                    pl.col(field).is_not_null() &
+                    ~((pl.col(field) >= pl.date(2010, 1, 1)) & (pl.col(field) <= pl.date(2030, 12, 31)))
+                ).then(None).otherwise(pl.col(field)).alias(field)
+            ])
     
-    rows_removed = original_rows - len(validated_df)
-    if rows_removed > 0:
-        logger.info(f"Data validation: removed {rows_removed} invalid records")
-        # Log detailed breakdown if available
-        if validation_results.get('invalid_reasons'):
-            reasons = validation_results['invalid_reasons']
-            logger.info(f"Breakdown of removed records:")
-            for reason, count in sorted(reasons.items(), key=lambda x: x[1], reverse=True):
-                percentage = (count / original_rows * 100) if original_rows > 0 else 0
-                logger.info(f"  - {reason}: {count} records ({percentage:.1f}%)")
+    # Filter zero quantities
+    qty_field = next((f for f in ['QTY', 'quantity'] if f in validated_df.columns), None)
+    if qty_field:
+        if not isinstance(validated_df[qty_field].dtype, (pl.Int64, pl.Int32, pl.Float64, pl.Float32)):
+            validated_df = validated_df.with_columns([
+                pl.col(qty_field).cast(pl.Float64, strict=False).alias(qty_field)
+            ])
+        
+        before = len(validated_df)
+        validated_df = validated_df.filter(pl.col(qty_field).is_null() | (pl.col(qty_field) != 0))
+        removed = before - len(validated_df)
+        if removed > 0:
+            validation_results['invalid_records'] += removed
+            validation_results['invalid_reasons'][f'{qty_field}_zero'] = removed
+    
+    # Check suspicious patterns
+    if qty_field and isinstance(validated_df[qty_field].dtype, (pl.Int64, pl.Int32, pl.Float64, pl.Float32)):
+        suspicious = validated_df.filter(pl.col(qty_field).abs() > 10000)
+        if len(suspicious) > 0:
+            validation_results['suspicious_patterns'].append({
+                'type': 'high_quantity',
+                'count': len(suspicious),
+                'max_value': validated_df[qty_field].max()
+            })
+    
+    price_field = next((f for f in ['T.P', 'total_price'] if f in validated_df.columns), None)
+    if price_field and isinstance(validated_df[price_field].dtype, (pl.Int64, pl.Int32, pl.Float64, pl.Float32)):
+        suspicious = validated_df.filter(pl.col(price_field) > 100000)
+        if len(suspicious) > 0:
+            validation_results['suspicious_patterns'].append({
+                'type': 'high_price',
+                'count': len(suspicious),
+                'max_value': validated_df[price_field].max()
+            })
+    
+    removed = original_rows - len(validated_df)
+    if removed > 0:
+        logger.info(f"Data validation: removed {removed} invalid records")
     
     return validated_df, validation_results
 

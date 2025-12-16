@@ -32,6 +32,19 @@ def handle_exceptions(f):
                     "status": "error"
                 }
             }), e.status_code
+        except ValueError as e:
+            logger.error(f"Validation error [{g.request_id}]: {str(e)}", exc_info=True)
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": str(e),
+                    "details": {}
+                },
+                "meta": {
+                    "request_id": g.request_id,
+                    "status": "error"
+                }
+            }), 400
         except Exception as e:
             logger.error(f"Unexpected error [{g.request_id}]: {str(e)}", exc_info=True)
             return jsonify({

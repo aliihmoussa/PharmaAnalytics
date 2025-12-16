@@ -4,6 +4,8 @@ from typing import Dict, List
 from datetime import date, timedelta
 from backend.app.shared.base_service import BaseService
 from backend.app.modules.dashboard.queries import AnalyticsDAL
+from backend.app.database.session import get_db_session
+from backend.app.modules.ml.forecast_service import DrugDemandForecaster
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ class MLService(BaseService):
         self.dal = AnalyticsDAL()
         self.logger.info("MLService initialized")
     
-    def simple_forecast(
+    def gradient_boosting_forecast(
         self,
         drug_code: str,
         forecast_days: int = 30,
@@ -102,3 +104,66 @@ class MLService(BaseService):
             'lookback_days': lookback_days,
             'forecast_days': forecast_days
         }
+    
+    def gradient_boosting_forecast(
+        self,
+        drug_code: str,
+        forecast_days: int = 30
+    ) -> Dict:
+        """
+        Advanced forecast using Gradient Boosting Regressor.
+        
+        This uses machine learning to predict drug demand with features like:
+        - Time-based features (day of week, month, holidays)
+        - Lag features (previous demand values)
+        - Rolling statistics
+        
+        Args:
+            drug_code: Drug code to forecast
+            forecast_days: Number of days to forecast ahead
+        
+        Returns:
+            Dictionary with forecast results including recommendations
+        """
+        self.logger.info(f"Gradient Boosting forecast for {drug_code} - {forecast_days} days")
+        
+        # Create a new session for this operation
+        db_session = get_db_session()
+        try:
+            forecaster = DrugDemandForecaster(db_session)
+            result = forecaster.generate_forecast(drug_code, forecast_days)
+            return result
+        except Exception as e:
+            self.logger.error(f"Error in gradient boosting forecast: {str(e)}", exc_info=True)
+            raise
+        finally:
+            db_session.close()
+    
+    def train_gradient_boosting_model(
+        self,
+        drug_code: str,
+        forecast_horizon: int = 30
+    ) -> Dict:
+        """
+        Train a Gradient Boosting model for a specific drug.
+        
+        Args:
+            drug_code: Drug code to train model for
+            forecast_horizon: Forecast horizon for training
+        
+        Returns:
+            Dictionary with training results
+        """
+        self.logger.info(f"Training Gradient Boosting model for {drug_code}")
+        
+        # Create a new session for this operation
+        db_session = get_db_session()
+        try:
+            forecaster = DrugDemandForecaster(db_session)
+            result = forecaster.train_model(drug_code, forecast_horizon)
+            return result
+        except Exception as e:
+            self.logger.error(f"Error training model: {str(e)}", exc_info=True)
+            raise
+        finally:
+            db_session.close()

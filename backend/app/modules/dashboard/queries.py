@@ -1,13 +1,30 @@
-"""Analytics Data Access Layer - Database queries."""
+"""Analytics Data Access Layer - Database queries using SQLAlchemy ORM."""
 
 from typing import Dict, List, Optional
-from datetime import date
-from backend.app.database.connection import get_db_connection, close_db_connection
-from backend.app.database.base import BaseRepository
+from datetime import date, datetime
+from sqlalchemy import func, extract, case
+from sqlalchemy.orm import Session
+from backend.app.database.models import DrugTransaction
+from backend.app.database.session import get_db_session
 
 
-class AnalyticsDAL(BaseRepository):
-    """Data access layer for analytics queries."""
+class AnalyticsDAL:
+    """Data access layer for analytics queries using SQLAlchemy ORM."""
+    
+    def __init__(self):
+        """Initialize the DAL with a database session."""
+        self._session: Optional[Session] = None
+    
+    def __enter__(self):
+        """Context manager entry - get a database session."""
+        self._session = get_db_session()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - close the database session."""
+        if self._session:
+            self._session.close()
+            self._session = None
     
     def get_top_drugs(
         self,
@@ -18,35 +35,43 @@ class AnalyticsDAL(BaseRepository):
         department_id: Optional[int] = None
     ) -> List[Dict]:
         """Get top dispensed drugs from database."""
-        query = """
-            SELECT 
-                drug_code,
-                drug_name,
-                SUM(ABS(quantity)) as total_qty,
-                SUM(total_price) as total_value,
-                COUNT(*) as transaction_count
-            FROM drug_transactions
-            WHERE transaction_date BETWEEN %s AND %s
-                AND quantity < 0
-        """
-        params = [start_date, end_date]
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
+        query = self._session.query(
+            DrugTransaction.drug_code,
+            DrugTransaction.drug_name,
+            func.sum(func.abs(DrugTransaction.quantity)).label('total_qty'),
+            func.sum(DrugTransaction.total_price).label('total_value'),
+            func.count().label('transaction_count')
+        ).filter(
+            DrugTransaction.transaction_date.between(start_date, end_date),
+            DrugTransaction.quantity < 0
+        )
         
         if category_id:
-            query += " AND cat = %s"
-            params.append(category_id)
+            query = query.filter(DrugTransaction.cat == category_id)
         
         if department_id:
-            query += " AND cr = %s"
-            params.append(department_id)
+            query = query.filter(DrugTransaction.cr == department_id)
         
-        query += """
-            GROUP BY drug_code, drug_name
-            ORDER BY total_qty DESC
-            LIMIT %s
-        """
-        params.append(limit)
+        results = query.group_by(
+            DrugTransaction.drug_code,
+            DrugTransaction.drug_name
+        ).order_by(
+            func.sum(func.abs(DrugTransaction.quantity)).desc()
+        ).limit(limit).all()
         
-        return self.execute_query(query, tuple(params))
+        return [
+            {
+                'drug_code': row.drug_code,
+                'drug_name': row.drug_name,
+                'total_qty': float(row.total_qty) if row.total_qty else 0.0,
+                'total_value': float(row.total_value) if row.total_value else 0.0,
+                'transaction_count': row.transaction_count
+            }
+            for row in results
+        ]
     
     def get_drug_demand_time_series(
         self,
@@ -56,7 +81,10 @@ class AnalyticsDAL(BaseRepository):
         granularity: str = 'daily'
     ) -> List[Dict]:
         """Get time-series demand data."""
-        # Map granularity to PostgreSQL date_trunc format
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
+        # Map granularity to SQLAlchemy date_trunc format
         trunc_mapping = {
             'daily': 'day',
             'weekly': 'week',
@@ -64,51 +92,67 @@ class AnalyticsDAL(BaseRepository):
         }
         trunc_unit = trunc_mapping.get(granularity, 'day')
         
-        query = f"""
-            SELECT 
-                DATE_TRUNC('{trunc_unit}', transaction_date) as date,
-                SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as quantity,
-                SUM(total_price) FILTER (WHERE quantity < 0) as value,
-                COUNT(*) FILTER (WHERE quantity < 0) as transaction_count
-            FROM drug_transactions
-            WHERE transaction_date BETWEEN %s AND %s
-        """
-        params = [start_date, end_date]
+        query = self._session.query(
+            func.date_trunc(trunc_unit, DrugTransaction.transaction_date).label('date'),
+            func.sum(
+                func.abs(DrugTransaction.quantity)
+            ).filter(DrugTransaction.quantity < 0).label('quantity'),
+            func.sum(
+                DrugTransaction.total_price
+            ).filter(DrugTransaction.quantity < 0).label('value'),
+            func.count().filter(DrugTransaction.quantity < 0).label('transaction_count')
+        ).filter(
+            DrugTransaction.transaction_date.between(start_date, end_date)
+        )
         
         if drug_code:
-            query += " AND drug_code = %s"
-            params.append(drug_code)
+            query = query.filter(DrugTransaction.drug_code == drug_code)
         
-        query += f"""
-            GROUP BY DATE_TRUNC('{trunc_unit}', transaction_date)
-            ORDER BY date
-        """
+        results = query.group_by(
+            func.date_trunc(trunc_unit, DrugTransaction.transaction_date)
+        ).order_by(
+            func.date_trunc(trunc_unit, DrugTransaction.transaction_date)
+        ).all()
         
-        return self.execute_query(query, tuple(params))
+        return [
+            {
+                'date': row.date,
+                'quantity': float(row.quantity) if row.quantity else 0.0,
+                'value': float(row.value) if row.value else 0.0,
+                'transaction_count': row.transaction_count or 0
+            }
+            for row in results
+        ]
     
     def get_summary_stats(self, start_date: Optional[date], end_date: Optional[date]) -> Dict:
         """Get overall statistics."""
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
+        query = self._session.query(
+            func.count().filter(DrugTransaction.quantity < 0).label('total_dispensed'),
+            func.sum(DrugTransaction.total_price).filter(DrugTransaction.quantity < 0).label('total_value'),
+            func.count().label('total_transactions'),
+            func.count(func.distinct(DrugTransaction.drug_code)).label('unique_drugs'),
+            func.count(func.distinct(DrugTransaction.cr)).label('unique_departments')
+        )
+        
         if start_date and end_date:
-            where_clause = "WHERE transaction_date BETWEEN %s AND %s"
-            params = (start_date, end_date)
-        else:
-            where_clause = ""
-            params = None
+            query = query.filter(
+                DrugTransaction.transaction_date.between(start_date, end_date)
+            )
         
-        query = f"""
-            SELECT 
-                COALESCE(COUNT(*) FILTER (WHERE quantity < 0), 0) as total_dispensed,
-                COALESCE(SUM(total_price) FILTER (WHERE quantity < 0), 0.0) as total_value,
-                COALESCE(COUNT(*), 0) as total_transactions,
-                COALESCE(COUNT(DISTINCT drug_code), 0) as unique_drugs,
-                COALESCE(COUNT(DISTINCT cr), 0) as unique_departments
-            FROM drug_transactions
-            {where_clause}
-        """
+        result = query.first()
         
-        results = self.execute_query(query, params)
-        if results:
-            return results[0]
+        if result:
+            return {
+                'total_dispensed': result.total_dispensed or 0,
+                'total_value': float(result.total_value) if result.total_value else 0.0,
+                'total_transactions': result.total_transactions or 0,
+                'unique_drugs': result.unique_drugs or 0,
+                'unique_departments': result.unique_departments or 0
+            }
+        
         return {
             'total_dispensed': 0,
             'total_value': 0.0,
@@ -124,27 +168,42 @@ class AnalyticsDAL(BaseRepository):
         drug_code: Optional[str] = None
     ) -> List[Dict]:
         """Get seasonal patterns (monthly aggregations)."""
-        query = """
-            SELECT 
-                EXTRACT(MONTH FROM transaction_date) as month,
-                EXTRACT(YEAR FROM transaction_date) as year,
-                SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as quantity,
-                SUM(total_price) FILTER (WHERE quantity < 0) as value
-            FROM drug_transactions
-            WHERE transaction_date BETWEEN %s AND %s
-        """
-        params = [start_date, end_date]
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
+        query = self._session.query(
+            extract('month', DrugTransaction.transaction_date).label('month'),
+            extract('year', DrugTransaction.transaction_date).label('year'),
+            func.sum(
+                func.abs(DrugTransaction.quantity)
+            ).filter(DrugTransaction.quantity < 0).label('quantity'),
+            func.sum(
+                DrugTransaction.total_price
+            ).filter(DrugTransaction.quantity < 0).label('value')
+        ).filter(
+            DrugTransaction.transaction_date.between(start_date, end_date)
+        )
         
         if drug_code:
-            query += " AND drug_code = %s"
-            params.append(drug_code)
+            query = query.filter(DrugTransaction.drug_code == drug_code)
         
-        query += """
-            GROUP BY EXTRACT(MONTH FROM transaction_date), EXTRACT(YEAR FROM transaction_date)
-            ORDER BY year, month
-        """
+        results = query.group_by(
+            extract('month', DrugTransaction.transaction_date),
+            extract('year', DrugTransaction.transaction_date)
+        ).order_by(
+            extract('year', DrugTransaction.transaction_date),
+            extract('month', DrugTransaction.transaction_date)
+        ).all()
         
-        return self.execute_query(query, tuple(params))
+        return [
+            {
+                'month': int(row.month),
+                'year': int(row.year),
+                'quantity': float(row.quantity) if row.quantity else 0.0,
+                'value': float(row.value) if row.value else 0.0
+            }
+            for row in results
+        ]
     
     def get_department_performance(
         self,
@@ -153,21 +212,37 @@ class AnalyticsDAL(BaseRepository):
         limit: int = 10
     ) -> List[Dict]:
         """Get department performance metrics."""
-        query = """
-            SELECT 
-                cr as department_id,
-                COUNT(*) as transaction_count,
-                SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as total_dispensed,
-                SUM(total_price) FILTER (WHERE quantity < 0) as total_value,
-                COUNT(DISTINCT drug_code) as unique_drugs
-            FROM drug_transactions
-            WHERE transaction_date BETWEEN %s AND %s
-            GROUP BY cr
-            ORDER BY total_dispensed DESC
-            LIMIT %s
-        """
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
         
-        return self.execute_query(query, (start_date, end_date, limit))
+        results = self._session.query(
+            DrugTransaction.cr.label('department_id'),
+            func.count().label('transaction_count'),
+            func.sum(
+                func.abs(DrugTransaction.quantity)
+            ).filter(DrugTransaction.quantity < 0).label('total_dispensed'),
+            func.sum(
+                DrugTransaction.total_price
+            ).filter(DrugTransaction.quantity < 0).label('total_value'),
+            func.count(func.distinct(DrugTransaction.drug_code)).label('unique_drugs')
+        ).filter(
+            DrugTransaction.transaction_date.between(start_date, end_date)
+        ).group_by(
+            DrugTransaction.cr
+        ).order_by(
+            func.sum(func.abs(DrugTransaction.quantity)).filter(DrugTransaction.quantity < 0).desc()
+        ).limit(limit).all()
+        
+        return [
+            {
+                'department_id': row.department_id,
+                'transaction_count': row.transaction_count,
+                'total_dispensed': float(row.total_dispensed) if row.total_dispensed else 0.0,
+                'total_value': float(row.total_value) if row.total_value else 0.0,
+                'unique_drugs': row.unique_drugs
+            }
+            for row in results
+        ]
     
     def get_year_comparison(
         self,
@@ -185,41 +260,52 @@ class AnalyticsDAL(BaseRepository):
             start_year: Optional start year (default: 2019)
             end_year: Optional end year (default: 2022)
         """
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
         # Build metric selection based on type
         if metric_type == 'quantity':
-            metric_select = "SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as metric_value"
+            metric_expr = func.sum(
+                func.abs(DrugTransaction.quantity)
+            ).filter(DrugTransaction.quantity < 0)
         elif metric_type == 'value':
-            metric_select = "SUM(total_price) FILTER (WHERE quantity < 0) as metric_value"
+            metric_expr = func.sum(
+                DrugTransaction.total_price
+            ).filter(DrugTransaction.quantity < 0)
         else:  # transactions
-            metric_select = "COUNT(*) FILTER (WHERE quantity < 0) as metric_value"
+            metric_expr = func.count().filter(DrugTransaction.quantity < 0)
         
-        query = f"""
-            SELECT 
-                EXTRACT(YEAR FROM transaction_date) as year,
-                {metric_select}
-            FROM drug_transactions
-            WHERE 1=1
-        """
-        params = []
+        query = self._session.query(
+            extract('year', DrugTransaction.transaction_date).label('year'),
+            metric_expr.label('metric_value')
+        )
         
         if start_year:
-            query += " AND EXTRACT(YEAR FROM transaction_date) >= %s"
-            params.append(start_year)
+            query = query.filter(
+                extract('year', DrugTransaction.transaction_date) >= start_year
+            )
         
         if end_year:
-            query += " AND EXTRACT(YEAR FROM transaction_date) <= %s"
-            params.append(end_year)
+            query = query.filter(
+                extract('year', DrugTransaction.transaction_date) <= end_year
+            )
         
         if drug_code:
-            query += " AND drug_code = %s"
-            params.append(drug_code)
+            query = query.filter(DrugTransaction.drug_code == drug_code)
         
-        query += """
-            GROUP BY EXTRACT(YEAR FROM transaction_date)
-            ORDER BY year
-        """
+        results = query.group_by(
+            extract('year', DrugTransaction.transaction_date)
+        ).order_by(
+            extract('year', DrugTransaction.transaction_date)
+        ).all()
         
-        return self.execute_query(query, tuple(params) if params else None)
+        return [
+            {
+                'year': int(row.year),
+                'metric_value': float(row.metric_value) if row.metric_value else 0.0
+            }
+            for row in results
+        ]
     
     def get_category_analysis(
         self,
@@ -235,27 +321,44 @@ class AnalyticsDAL(BaseRepository):
             end_date: End date
             granularity: 'monthly' or 'quarterly'
         """
-        if granularity == 'quarterly':
-            date_trunc = "DATE_TRUNC('quarter', transaction_date)"
-        else:  # monthly
-            date_trunc = "DATE_TRUNC('month', transaction_date)"
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
         
-        query = f"""
-            SELECT 
-                {date_trunc} as period,
-                cat as category_id,
-                SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as total_quantity,
-                SUM(total_price) FILTER (WHERE quantity < 0) as total_value,
-                COUNT(*) FILTER (WHERE quantity < 0) as transaction_count,
-                COUNT(DISTINCT drug_code) as unique_drugs
-            FROM drug_transactions
-            WHERE transaction_date BETWEEN %s AND %s
-                AND cat IS NOT NULL
-            GROUP BY {date_trunc}, cat
-            ORDER BY period, cat
-        """
+        trunc_unit = 'quarter' if granularity == 'quarterly' else 'month'
         
-        return self.execute_query(query, (start_date, end_date))
+        results = self._session.query(
+            func.date_trunc(trunc_unit, DrugTransaction.transaction_date).label('period'),
+            DrugTransaction.cat.label('category_id'),
+            func.sum(
+                func.abs(DrugTransaction.quantity)
+            ).filter(DrugTransaction.quantity < 0).label('total_quantity'),
+            func.sum(
+                DrugTransaction.total_price
+            ).filter(DrugTransaction.quantity < 0).label('total_value'),
+            func.count().filter(DrugTransaction.quantity < 0).label('transaction_count'),
+            func.count(func.distinct(DrugTransaction.drug_code)).label('unique_drugs')
+        ).filter(
+            DrugTransaction.transaction_date.between(start_date, end_date),
+            DrugTransaction.cat.isnot(None)
+        ).group_by(
+            func.date_trunc(trunc_unit, DrugTransaction.transaction_date),
+            DrugTransaction.cat
+        ).order_by(
+            func.date_trunc(trunc_unit, DrugTransaction.transaction_date),
+            DrugTransaction.cat
+        ).all()
+        
+        return [
+            {
+                'period': row.period,
+                'category_id': row.category_id,
+                'total_quantity': float(row.total_quantity) if row.total_quantity else 0.0,
+                'total_value': float(row.total_value) if row.total_value else 0.0,
+                'transaction_count': row.transaction_count or 0,
+                'unique_drugs': row.unique_drugs
+            }
+            for row in results
+        ]
     
     def get_patient_demographics(
         self,
@@ -271,64 +374,119 @@ class AnalyticsDAL(BaseRepository):
             end_date: End date
             group_by: 'age', 'room', or 'bed'
         """
-        if group_by == 'age':
-            # Group by age ranges
-            query = """
-                SELECT 
-                    CASE 
-                        WHEN patient_age::integer < 18 THEN '0-17'
-                        WHEN patient_age::integer < 30 THEN '18-29'
-                        WHEN patient_age::integer < 50 THEN '30-49'
-                        WHEN patient_age::integer < 70 THEN '50-69'
-                        ELSE '70+'
-                    END as age_group,
-                    COUNT(*) as transaction_count,
-                    SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as total_quantity,
-                    SUM(total_price) FILTER (WHERE quantity < 0) as total_value
-                FROM drug_transactions
-                WHERE transaction_date BETWEEN %s AND %s
-                    AND patient_age IS NOT NULL
-                    AND patient_age ~ '^[0-9]+$'
-                GROUP BY age_group
-                ORDER BY 
-                    CASE age_group
-                        WHEN '0-17' THEN 1
-                        WHEN '18-29' THEN 2
-                        WHEN '30-49' THEN 3
-                        WHEN '50-69' THEN 4
-                        ELSE 5
-                    END
-            """
-        elif group_by == 'room':
-            query = """
-                SELECT 
-                    room_number,
-                    COUNT(*) as transaction_count,
-                    SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as total_quantity,
-                    SUM(total_price) FILTER (WHERE quantity < 0) as total_value,
-                    COUNT(DISTINCT drug_code) as unique_drugs
-                FROM drug_transactions
-                WHERE transaction_date BETWEEN %s AND %s
-                    AND room_number IS NOT NULL
-                GROUP BY room_number
-                ORDER BY total_quantity DESC
-                LIMIT 50
-            """
-        else:  # bed
-            query = """
-                SELECT 
-                    bed_number,
-                    COUNT(*) as transaction_count,
-                    SUM(ABS(quantity)) FILTER (WHERE quantity < 0) as total_quantity,
-                    SUM(total_price) FILTER (WHERE quantity < 0) as total_value,
-                    COUNT(DISTINCT drug_code) as unique_drugs
-                FROM drug_transactions
-                WHERE transaction_date BETWEEN %s AND %s
-                    AND bed_number IS NOT NULL
-                GROUP BY bed_number
-                ORDER BY total_quantity DESC
-                LIMIT 50
-            """
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
         
-        return self.execute_query(query, (start_date, end_date))
-
+        if group_by == 'age':
+            # Calculate age from date_of_birth at the time of transaction
+            # Use PostgreSQL's AGE function and extract years
+            age_expr = extract(
+                'year',
+                func.age(DrugTransaction.transaction_date, DrugTransaction.date_of_birth)
+            )
+            
+            age_group_expr = case(
+                (age_expr < 18, '0-17'),
+                (age_expr < 30, '18-29'),
+                (age_expr < 50, '30-49'),
+                (age_expr < 70, '50-69'),
+                else_='70+'
+            ).label('age_group')
+            
+            age_order_expr = case(
+                (age_expr < 18, 1),
+                (age_expr < 30, 2),
+                (age_expr < 50, 3),
+                (age_expr < 70, 4),
+                else_=5
+            )
+            
+            results = self._session.query(
+                age_group_expr,
+                func.count().label('transaction_count'),
+                func.sum(
+                    func.abs(DrugTransaction.quantity)
+                ).filter(DrugTransaction.quantity < 0).label('total_quantity'),
+                func.sum(
+                    DrugTransaction.total_price
+                ).filter(DrugTransaction.quantity < 0).label('total_value')
+            ).filter(
+                DrugTransaction.transaction_date.between(start_date, end_date),
+                DrugTransaction.date_of_birth.isnot(None)
+            ).group_by(
+                age_group_expr
+            ).order_by(
+                age_order_expr
+            ).all()
+            
+            return [
+                {
+                    'age_group': row.age_group,
+                    'transaction_count': row.transaction_count,
+                    'total_quantity': float(row.total_quantity) if row.total_quantity else 0.0,
+                    'total_value': float(row.total_value) if row.total_value else 0.0
+                }
+                for row in results
+            ]
+        
+        elif group_by == 'room':
+            results = self._session.query(
+                DrugTransaction.room_number,
+                func.count().label('transaction_count'),
+                func.sum(
+                    func.abs(DrugTransaction.quantity)
+                ).filter(DrugTransaction.quantity < 0).label('total_quantity'),
+                func.sum(
+                    DrugTransaction.total_price
+                ).filter(DrugTransaction.quantity < 0).label('total_value'),
+                func.count(func.distinct(DrugTransaction.drug_code)).label('unique_drugs')
+            ).filter(
+                DrugTransaction.transaction_date.between(start_date, end_date),
+                DrugTransaction.room_number.isnot(None)
+            ).group_by(
+                DrugTransaction.room_number
+            ).order_by(
+                func.sum(func.abs(DrugTransaction.quantity)).filter(DrugTransaction.quantity < 0).desc()
+            ).limit(50).all()
+            
+            return [
+                {
+                    'room_number': row.room_number,
+                    'transaction_count': row.transaction_count,
+                    'total_quantity': float(row.total_quantity) if row.total_quantity else 0.0,
+                    'total_value': float(row.total_value) if row.total_value else 0.0,
+                    'unique_drugs': row.unique_drugs
+                }
+                for row in results
+            ]
+        
+        else:  # bed
+            results = self._session.query(
+                DrugTransaction.bed_number,
+                func.count().label('transaction_count'),
+                func.sum(
+                    func.abs(DrugTransaction.quantity)
+                ).filter(DrugTransaction.quantity < 0).label('total_quantity'),
+                func.sum(
+                    DrugTransaction.total_price
+                ).filter(DrugTransaction.quantity < 0).label('total_value'),
+                func.count(func.distinct(DrugTransaction.drug_code)).label('unique_drugs')
+            ).filter(
+                DrugTransaction.transaction_date.between(start_date, end_date),
+                DrugTransaction.bed_number.isnot(None)
+            ).group_by(
+                DrugTransaction.bed_number
+            ).order_by(
+                func.sum(func.abs(DrugTransaction.quantity)).filter(DrugTransaction.quantity < 0).desc()
+            ).limit(50).all()
+            
+            return [
+                {
+                    'bed_number': row.bed_number,
+                    'transaction_count': row.transaction_count,
+                    'total_quantity': float(row.total_quantity) if row.total_quantity else 0.0,
+                    'total_value': float(row.total_value) if row.total_value else 0.0,
+                    'unique_drugs': row.unique_drugs
+                }
+                for row in results
+            ]
