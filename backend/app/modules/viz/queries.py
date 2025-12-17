@@ -252,4 +252,247 @@ class CostAnalysisDAL:
             }
             for row in results
         ]
+    
+    def get_hospital_stay_duration(self, start_date: date, end_date: date,
+                                   departments: Optional[List[int]] = None,
+                                   min_stay_days: Optional[int] = None,
+                                   max_stay_days: Optional[int] = None) -> List[Dict]:
+        """
+        Get hospital stay duration for patients.
+        Groups by doc_id and calculates stay duration from admission date to last transaction.
+        """
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with CostAnalysisDAL() as dal:'")
+        
+        # Base query - filter by date range and get patient stays
+        query = self._session.query(
+            DrugTransaction.doc_id,
+            func.min(DrugTransaction.ad_date).label('admission_date'),
+            func.max(DrugTransaction.transaction_date).label('last_transaction_date'),
+            func.coalesce(func.max(DrugTransaction.cr), 0).label('department_id'),
+            func.count().label('transaction_count')
+        ).filter(
+            DrugTransaction.transaction_date.between(start_date, end_date)
+        )
+        
+        # Filter by departments if provided
+        if departments:
+            query = query.filter(DrugTransaction.cr.in_(departments))
+        
+        # Group by doc_id to get unique patient stays
+        query = query.group_by(DrugTransaction.doc_id)
+        
+        # Execute query
+        results = query.all()
+        
+        # Calculate stay duration and filter
+        stays = []
+        for row in results:
+            admission_date = row.admission_date
+            last_transaction = row.last_transaction_date
+            
+            # Skip if no admission date
+            if not admission_date:
+                continue
+            
+            # Calculate stay duration in days
+            stay_days = (last_transaction - admission_date).days
+            
+            # Skip negative or zero stays (data quality issue)
+            if stay_days < 0:
+                continue
+            
+            # Apply stay duration filters
+            if min_stay_days is not None and stay_days < min_stay_days:
+                continue
+            if max_stay_days is not None and stay_days > max_stay_days:
+                continue
+            
+            stays.append({
+                'doc_id': row.doc_id,
+                'admission_date': admission_date.isoformat(),
+                'last_transaction_date': last_transaction.isoformat(),
+                'stay_days': stay_days,
+                'department_id': row.department_id,
+                'transaction_count': row.transaction_count
+            })
+        
+        return stays
+    
+    def get_stay_duration_statistics(self, start_date: date, end_date: date,
+                                    departments: Optional[List[int]] = None,
+                                    min_stay_days: Optional[int] = None,
+                                    max_stay_days: Optional[int] = None) -> Dict:
+        """Get statistical summary of hospital stay durations."""
+        stays = self.get_hospital_stay_duration(
+            start_date, end_date, departments, min_stay_days, max_stay_days
+        )
+        
+        if not stays:
+            return {
+                'total_patients': 0,
+                'average_stay_days': 0.0,
+                'median_stay_days': 0.0,
+                'min_stay_days': 0,
+                'max_stay_days': 0,
+                'std_dev_stay_days': 0.0
+            }
+        
+        stay_days_list = [stay['stay_days'] for stay in stays]
+        stay_days_list.sort()
+        
+        total_patients = len(stay_days_list)
+        average = sum(stay_days_list) / total_patients
+        
+        # Calculate median
+        if total_patients % 2 == 0:
+            median = (stay_days_list[total_patients // 2 - 1] + stay_days_list[total_patients // 2]) / 2
+        else:
+            median = stay_days_list[total_patients // 2]
+        
+        # Calculate standard deviation
+        variance = sum((x - average) ** 2 for x in stay_days_list) / total_patients
+        std_dev = variance ** 0.5
+        
+        return {
+            'total_patients': total_patients,
+            'average_stay_days': round(average, 2),
+            'median_stay_days': round(median, 2),
+            'min_stay_days': min(stay_days_list),
+            'max_stay_days': max(stay_days_list),
+            'std_dev_stay_days': round(std_dev, 2)
+        }
+    
+    def get_stay_duration_distribution(self, start_date: date, end_date: date,
+                                      departments: Optional[List[int]] = None,
+                                      min_stay_days: Optional[int] = None,
+                                      max_stay_days: Optional[int] = None,
+                                      bins: int = 20) -> List[Dict]:
+        """Get distribution of stay durations for histogram."""
+        stays = self.get_hospital_stay_duration(
+            start_date, end_date, departments, min_stay_days, max_stay_days
+        )
+        
+        if not stays:
+            return []
+        
+        stay_days_list = [stay['stay_days'] for stay in stays]
+        min_days = min(stay_days_list)
+        max_days = max(stay_days_list)
+        
+        # Create bins
+        bin_width = (max_days - min_days) / bins if max_days > min_days else 1
+        if bin_width == 0:
+            bin_width = 1
+        
+        # Initialize bins
+        bin_counts = {}
+        for i in range(bins):
+            bin_start = min_days + i * bin_width
+            bin_end = min_days + (i + 1) * bin_width
+            bin_key = f"{int(bin_start)}-{int(bin_end)}"
+            bin_counts[bin_key] = {
+                'range': f"{int(bin_start)}-{int(bin_end)} days",
+                'start': int(bin_start),
+                'end': int(bin_end),
+                'count': 0
+            }
+        
+        # Count stays in each bin
+        for stay_days in stay_days_list:
+            bin_index = int((stay_days - min_days) / bin_width) if bin_width > 0 else 0
+            bin_index = min(bin_index, bins - 1)  # Ensure we don't go out of bounds
+            
+            bin_start = min_days + bin_index * bin_width
+            bin_end = min_days + (bin_index + 1) * bin_width
+            bin_key = f"{int(bin_start)}-{int(bin_end)}"
+            
+            if bin_key in bin_counts:
+                bin_counts[bin_key]['count'] += 1
+        
+        return list(bin_counts.values())
+    
+    def get_stay_duration_by_department(self, start_date: date, end_date: date,
+                                       departments: Optional[List[int]] = None,
+                                       min_stay_days: Optional[int] = None,
+                                       max_stay_days: Optional[int] = None) -> List[Dict]:
+        """Get average stay duration grouped by department."""
+        stays = self.get_hospital_stay_duration(
+            start_date, end_date, departments, min_stay_days, max_stay_days
+        )
+        
+        if not stays:
+            return []
+        
+        # Group by department
+        dept_stays = {}
+        for stay in stays:
+            dept_id = stay['department_id']
+            if dept_id not in dept_stays:
+                dept_stays[dept_id] = []
+            dept_stays[dept_id].append(stay['stay_days'])
+        
+        # Calculate averages
+        result = []
+        for dept_id, stay_days_list in dept_stays.items():
+            avg_stay = sum(stay_days_list) / len(stay_days_list)
+            result.append({
+                'department_id': dept_id,
+                'patient_count': len(stay_days_list),
+                'average_stay_days': round(avg_stay, 2),
+                'min_stay_days': min(stay_days_list),
+                'max_stay_days': max(stay_days_list)
+            })
+        
+        # Sort by average stay days descending
+        result.sort(key=lambda x: x['average_stay_days'], reverse=True)
+        return result
+    
+    def get_stay_duration_trends(self, start_date: date, end_date: date,
+                                 departments: Optional[List[int]] = None,
+                                 min_stay_days: Optional[int] = None,
+                                 max_stay_days: Optional[int] = None,
+                                 granularity: str = 'monthly') -> List[Dict]:
+        """Get stay duration trends over time."""
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with CostAnalysisDAL() as dal:'")
+        
+        # Get all stays first
+        all_stays = self.get_hospital_stay_duration(
+            start_date, end_date, departments, min_stay_days, max_stay_days
+        )
+        
+        if not all_stays:
+            return []
+        
+        # Group by time period
+        trunc_unit = 'month' if granularity == 'monthly' else 'day'
+        trends = {}
+        
+        for stay in all_stays:
+            # Use admission date for grouping
+            admission_date = date.fromisoformat(stay['admission_date'])
+            
+            if trunc_unit == 'month':
+                period_key = admission_date.strftime('%Y-%m')
+            else:
+                period_key = admission_date.isoformat()
+            
+            if period_key not in trends:
+                trends[period_key] = []
+            trends[period_key].append(stay['stay_days'])
+        
+        # Calculate averages per period
+        result = []
+        for period, stay_days_list in sorted(trends.items()):
+            avg_stay = sum(stay_days_list) / len(stay_days_list)
+            result.append({
+                'period': period,
+                'average_stay_days': round(avg_stay, 2),
+                'patient_count': len(stay_days_list),
+                'min_stay_days': min(stay_days_list),
+                'max_stay_days': max(stay_days_list)
+            })
+        
+        return result
 

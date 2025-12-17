@@ -12,30 +12,30 @@ The project follows a **three-module microservices architecture** with clear sep
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Frontend Application                      │
+│                    Frontend Application                     │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Flask REST API Backend                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Ingestion   │  │  Dashboard   │  │ Forecasting  │      │
-│  │   Module     │  │   Module     │  │   Module     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│                    Flask REST API Backend                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │  Ingestion   │  │  Dashboard   │  │ Forecasting  │       │
+│  │   Module     │  │   Module     │  │   Module     │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
 └───────────┬──────────────────┬──────────────────┬───────────┘
             │                  │                  │
             ▼                  ▼                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              PostgreSQL Database (SQLAlchemy)                │
+│              PostgreSQL Database (SQLAlchemy)               │
 │  • drug_transactions                                        │
 │  • data_ingestion_log                                       │
-│  • data_ingestion_errors                                     │
+│  • data_ingestion_errors                                    │
 └─────────────────────────────────────────────────────────────┘
             │
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│         Celery Worker (Background Processing)                │
-│              Redis (Message Broker & Results)                │
+│         Celery Worker (Background Processing)               │
+│              Redis (Message Broker & Results)               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -360,7 +360,7 @@ Flask API → Queue Task → Redis → Celery Worker → Process File → Update
 ```
 1. INGESTION PHASE
    ┌─────────────────────────────────────────┐
-   │ User uploads Excel/CSV file            │
+   │ User uploads Excel/CSV file             │
    └───────────────┬─────────────────────────┘
                    │
                    ▼
@@ -373,14 +373,14 @@ Flask API → Queue Task → Redis → Celery Worker → Process File → Update
                    │
                    ▼
    ┌─────────────────────────────────────────┐
-   │ Queue Celery task via Redis            │
+   │ Queue Celery task via Redis             │ 
    │ • Task ID returned to client            │
    │ • File path stored in task              │
    └───────────────┬─────────────────────────┘
                    │
                    ▼
    ┌─────────────────────────────────────────┐
-   │ Celery Worker picks up task            │
+   │ Celery Worker picks up task             │
    │ • Loads file (Polars/Pandas)            │
    │ • Cleans and transforms data            │
    │ • Processes in batches (10k records)    │
@@ -391,7 +391,7 @@ Flask API → Queue Task → Redis → Celery Worker → Process File → Update
    ┌─────────────────────────────────────────┐
    │ SQLAlchemy inserts into PostgreSQL      │
    │ • Batch inserts for performance         │
-   │ • Error records logged separately        │
+   │ • Error records logged separately       │
    │ • Updates ingestion log status          │
    └─────────────────────────────────────────┘
 

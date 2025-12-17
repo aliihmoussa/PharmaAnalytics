@@ -20,7 +20,7 @@ class MLService(BaseService):
         self.dal = AnalyticsDAL()
         self.logger.info("MLService initialized")
     
-    def gradient_boosting_forecast(
+    def simple_forecast(
         self,
         drug_code: str,
         forecast_days: int = 30,
@@ -42,10 +42,48 @@ class MLService(BaseService):
         """
         self.logger.info(f"Forecasting {drug_code} for {forecast_days} days")
         
-        # Get historical data
-        end_date = date.today()
+        # First, find the last transaction date for this drug
+        # We'll query a wide date range to find available data
+        with self.dal:
+            # Try to find the last transaction date by querying a wide range
+            # Start from a reasonable past date (e.g., 5 years ago) to today
+            search_end_date = date.today()
+            search_start_date = search_end_date - timedelta(days=365 * 5)  # 5 years back
+            
+            # Get all available data for this drug
+            all_data = self.dal.get_drug_demand_time_series(
+                start_date=search_start_date,
+                end_date=search_end_date,
+                drug_code=drug_code,
+                granularity='daily'
+            )
+        
+        if not all_data or len(all_data) < 7:
+            raise ValueError(
+                f"Insufficient data for {drug_code}. Need at least 7 days, got {len(all_data) if all_data else 0}."
+            )
+        
+        # Find the last transaction date from the data
+        last_transaction_date = None
+        for row in reversed(all_data):  # Start from the end
+            row_date = row['date']
+            if isinstance(row_date, str):
+                row_date = date.fromisoformat(row_date.split()[0])  # Handle datetime strings
+            elif hasattr(row_date, 'date'):
+                row_date = row_date.date()
+            
+            if row_date:
+                last_transaction_date = row_date
+                break
+        
+        if not last_transaction_date:
+            raise ValueError(f"Could not determine last transaction date for {drug_code}")
+        
+        # Use the last transaction date as end_date, and lookback from there
+        end_date = last_transaction_date
         start_date = end_date - timedelta(days=lookback_days)
         
+        # Get the historical data for the lookback period
         with self.dal:
             historical_data = self.dal.get_drug_demand_time_series(
                 start_date=start_date,
@@ -54,9 +92,17 @@ class MLService(BaseService):
                 granularity='daily'
             )
         
+        # If we don't have enough data in the lookback window, use all available data
+        if not historical_data or len(historical_data) < 7:
+            self.logger.warning(
+                f"Only {len(historical_data) if historical_data else 0} days in lookback window, "
+                f"using all available {len(all_data)} days for {drug_code}"
+            )
+            historical_data = all_data[-lookback_days:] if len(all_data) > lookback_days else all_data
+        
         if not historical_data or len(historical_data) < 7:
             raise ValueError(
-                f"Insufficient data for {drug_code}. Need at least 7 days, got {len(historical_data)}."
+                f"Insufficient data for {drug_code}. Need at least 7 days, got {len(historical_data) if historical_data else 0}."
             )
         
         # Extract demand values

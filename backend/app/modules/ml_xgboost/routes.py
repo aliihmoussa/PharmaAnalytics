@@ -2,6 +2,7 @@
 
 from flask import Blueprint, request
 from backend.app.modules.ml_xgboost.service import XGBoostForecastService
+from backend.app.modules.ml_xgboost.service_enhanced import EnhancedXGBoostForecastService
 from backend.app.shared.middleware import handle_exceptions, format_success_response
 from datetime import datetime, date, timedelta
 import pandas as pd
@@ -90,6 +91,96 @@ def get_xgboost_forecast(drug_code: str):
         )
     except Exception as e:
         logger.error(f"Unexpected error forecasting {drug_code}: {str(e)}", exc_info=True)
+        return format_success_response(
+            {'error': 'Internal server error during forecast'},
+            500
+        )
+
+
+@ml_xgboost_bp.route('/forecast-enhanced/<drug_code>', methods=['GET'])
+@handle_exceptions
+def get_enhanced_forecast(drug_code: str):
+    """
+    GET /api/ml-xgboost/forecast-enhanced/{drug_code}
+    
+    Enhanced XGBoost forecast with domain-specific features (departments, categories, rooms).
+    Returns frontend-ready format with historical and forecast data.
+    
+    Query params:
+    - forecast_days: int (default: 30) - Days to forecast ahead
+    - test_size: int (default: 30) - Days to use for testing
+    - lookback_days: int (optional) - Limit historical data
+    - start_date: YYYY-MM-DD (optional) - Start date for historical data
+    - end_date: YYYY-MM-DD (optional) - End date for historical data
+    
+    Returns:
+        Frontend-ready forecast data with:
+        - historical: Array of {date, demand, type: 'actual'}
+        - forecast: Array of {date, predicted, lower, upper, type: 'predicted'}
+        - test_predictions: Array of {date, actual, predicted, error, type: 'test'}
+        - metrics: {rmse, mae, mape, r2}
+        - feature_importance: Object with feature importance scores
+    """
+    # Parse query parameters
+    forecast_days = int(request.args.get('forecast_days', 30))
+    test_size = int(request.args.get('test_size', 30))
+    lookback_days = request.args.get('lookback_days')
+    lookback_days = int(lookback_days) if lookback_days else None
+    
+    start_date = request.args.get('start_date')
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        except ValueError:
+            return format_success_response(
+                {'error': 'Invalid start_date format. Use YYYY-MM-DD'},
+                400
+            )
+    
+    end_date = request.args.get('end_date')
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return format_success_response(
+                {'error': 'Invalid end_date format. Use YYYY-MM-DD'},
+                400
+            )
+    
+    # Validation
+    if forecast_days < 1 or forecast_days > 365:
+        return format_success_response(
+            {'error': 'forecast_days must be between 1 and 365'},
+            400
+        )
+    
+    if test_size < 7:
+        return format_success_response(
+            {'error': 'test_size must be at least 7'},
+            400
+        )
+    
+    service = EnhancedXGBoostForecastService()
+    
+    try:
+        result = service.forecast(
+            drug_code=drug_code,
+            forecast_days=forecast_days,
+            test_size=test_size,
+            lookback_days=lookback_days,
+            start_date=start_date,
+            end_date=end_date
+        )
+        return format_success_response(result)
+    
+    except ValueError as e:
+        logger.error(f"Enhanced forecast error for {drug_code}: {str(e)}")
+        return format_success_response(
+            {'error': str(e)},
+            400
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in enhanced forecast for {drug_code}: {str(e)}", exc_info=True)
         return format_success_response(
             {'error': 'Internal server error during forecast'},
             500

@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import List
+from typing import List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -160,7 +160,8 @@ def create_binary_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def prepare_features(
     daily_data: pd.Series,
-    target_col: str = 'QTY'
+    target_col: str = 'QTY',
+    use_enhanced_features: bool = False
 ) -> pd.DataFrame:
     """
     Master function: combine all feature engineering steps matching Colab script.
@@ -168,6 +169,7 @@ def prepare_features(
     Args:
         daily_data: Daily time series (can be Series or DataFrame)
         target_col: Name of target column
+        use_enhanced_features: Whether to include domain-specific enhanced features
     
     Returns:
         DataFrame with all features prepared
@@ -196,6 +198,15 @@ def prepare_features(
     
     logger.info("Creating binary features...")
     features_df = create_binary_features(features_df)
+    
+    # Add enhanced domain-specific features if requested
+    if use_enhanced_features:
+        try:
+            from backend.app.modules.ml_xgboost.features.enhanced_features import create_enhanced_features
+            logger.info("Creating enhanced domain-specific features...")
+            features_df = create_enhanced_features(features_df, target_col=target_col)
+        except Exception as e:
+            logger.warning(f"Could not create enhanced features: {str(e)}")
     
     # Remove rows with NaN values (from lag/rolling features)
     features_df = features_df.dropna()
