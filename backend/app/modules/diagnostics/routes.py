@@ -1,17 +1,17 @@
-"""API routes for ML module."""
+"""API routes for Diagnostics module."""
 
 from flask import Blueprint, request, jsonify
-from backend.app.modules.ml.services import FeatureService
+from backend.app.modules.diagnostics.services import FeatureService
 from backend.app.shared.middleware import handle_exceptions
 import logging
 
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-ml_bp = Blueprint('ml', __name__, url_prefix='/api/ml')
+diagnostics_bp = Blueprint('diagnostics', __name__, url_prefix='/api/diagnostics')
 
 
-@ml_bp.route('/features/<drug_code>', methods=['GET'])
+@diagnostics_bp.route('/features/<drug_code>', methods=['GET'])
 @handle_exceptions
 def get_features(drug_code: str):
     """
