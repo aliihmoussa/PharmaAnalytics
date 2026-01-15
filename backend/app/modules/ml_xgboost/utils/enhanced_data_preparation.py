@@ -17,7 +17,8 @@ def load_enhanced_transaction_data(
     drug_code: str,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    lookback_days: Optional[int] = None
+    lookback_days: Optional[int] = None,
+    department: Optional[int] = None
 ) -> pd.DataFrame:
     """
     Load full transaction data with all metadata for enhanced feature engineering.
@@ -27,6 +28,7 @@ def load_enhanced_transaction_data(
         start_date: Optional start date
         end_date: Optional end date (defaults to today)
         lookback_days: Optional number of days to look back
+        department: Optional consuming department ID (C.R) to filter by
     
     Returns:
         DataFrame with daily aggregated data including metadata
@@ -41,7 +43,10 @@ def load_enhanced_transaction_data(
             # Default: 2 years of data
             start_date = end_date - timedelta(days=730)
     
-    logger.info(f"Loading enhanced transaction data for {drug_code} from {start_date} to {end_date}")
+    if department:
+        logger.info(f"Loading enhanced transaction data for {drug_code} (department: {department}) from {start_date} to {end_date}")
+    else:
+        logger.info(f"Loading enhanced transaction data for {drug_code} from {start_date} to {end_date}")
     
     session = get_db_session()
     try:
@@ -65,7 +70,13 @@ def load_enhanced_transaction_data(
             DrugTransaction.transaction_date >= start_date,
             DrugTransaction.transaction_date <= end_date,
             DrugTransaction.quantity < 0  # Only consumption
-        ).group_by(
+        )
+        
+        # Add department filter if provided
+        if department is not None:
+            query = query.filter(DrugTransaction.cr == department)
+        
+        query = query.group_by(
             func.date(DrugTransaction.transaction_date)
         ).order_by(
             func.date(DrugTransaction.transaction_date)
@@ -74,10 +85,10 @@ def load_enhanced_transaction_data(
         results = query.all()
         
         if not results:
-            raise ValueError(
-                f"No data found for drug_code={drug_code} "
-                f"between {start_date} and {end_date}"
-            )
+            error_msg = f"No data found for drug_code={drug_code} between {start_date} and {end_date}"
+            if department is not None:
+                error_msg += f" and department={department}"
+            raise ValueError(error_msg)
         
         # Load all transaction details for mode calculations (more efficient)
         detail_query = session.query(
@@ -91,7 +102,13 @@ def load_enhanced_transaction_data(
             DrugTransaction.transaction_date >= start_date,
             DrugTransaction.transaction_date <= end_date,
             DrugTransaction.quantity < 0
-        ).all()
+        )
+        
+        # Add department filter if provided
+        if department is not None:
+            detail_query = detail_query.filter(DrugTransaction.cr == department)
+        
+        detail_query = detail_query.all()
         
         # Convert to DataFrame for efficient processing
         detail_df = pd.DataFrame([

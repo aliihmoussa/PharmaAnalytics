@@ -311,7 +311,8 @@ class AnalyticsDAL:
         self,
         start_date: date,
         end_date: date,
-        granularity: str = 'monthly'
+        granularity: str = 'monthly',
+        limit: int = None
     ) -> List[Dict]:
         """
         Get drug category analysis over time.
@@ -320,13 +321,37 @@ class AnalyticsDAL:
             start_date: Start date
             end_date: End date
             granularity: 'monthly' or 'quarterly'
+            limit: Optional limit for top N categories (by total value)
         """
         if not self._session:
             raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
         
         trunc_unit = 'quarter' if granularity == 'quarterly' else 'month'
         
-        results = self._session.query(
+        # If limit is specified, first get top categories by total value
+        top_category_ids = None
+        if limit and limit > 0:
+            # Get top N categories by total value across all periods
+            category_totals = self._session.query(
+                DrugTransaction.cat.label('category_id'),
+                func.sum(DrugTransaction.total_price).filter(
+                    DrugTransaction.quantity < 0
+                ).label('total_value')
+            ).filter(
+                DrugTransaction.transaction_date.between(start_date, end_date),
+                DrugTransaction.cat.isnot(None)
+            ).group_by(
+                DrugTransaction.cat
+            ).order_by(
+                func.sum(DrugTransaction.total_price).filter(
+                    DrugTransaction.quantity < 0
+                ).desc()
+            ).limit(limit).all()
+            
+            top_category_ids = [row.category_id for row in category_totals]
+        
+        # Main query for category analysis
+        query = self._session.query(
             func.date_trunc(trunc_unit, DrugTransaction.transaction_date).label('period'),
             DrugTransaction.cat.label('category_id'),
             func.sum(
@@ -340,7 +365,13 @@ class AnalyticsDAL:
         ).filter(
             DrugTransaction.transaction_date.between(start_date, end_date),
             DrugTransaction.cat.isnot(None)
-        ).group_by(
+        )
+        
+        # Filter by top categories if limit is specified
+        if top_category_ids:
+            query = query.filter(DrugTransaction.cat.in_(top_category_ids))
+        
+        results = query.group_by(
             func.date_trunc(trunc_unit, DrugTransaction.transaction_date),
             DrugTransaction.cat
         ).order_by(
@@ -393,14 +424,6 @@ class AnalyticsDAL:
                 else_='70+'
             ).label('age_group')
             
-            age_order_expr = case(
-                (age_expr < 18, 1),
-                (age_expr < 30, 2),
-                (age_expr < 50, 3),
-                (age_expr < 70, 4),
-                else_=5
-            )
-            
             results = self._session.query(
                 age_group_expr,
                 func.count().label('transaction_count'),
@@ -415,9 +438,14 @@ class AnalyticsDAL:
                 DrugTransaction.date_of_birth.isnot(None)
             ).group_by(
                 age_group_expr
-            ).order_by(
-                age_order_expr
             ).all()
+            
+            # Sort results in Python by age group order
+            age_group_order = {'0-17': 1, '18-29': 2, '30-49': 3, '50-69': 4, '70+': 5}
+            sorted_results = sorted(
+                results,
+                key=lambda row: age_group_order.get(row.age_group, 99)
+            )
             
             return [
                 {
@@ -426,7 +454,7 @@ class AnalyticsDAL:
                     'total_quantity': float(row.total_quantity) if row.total_quantity else 0.0,
                     'total_value': float(row.total_value) if row.total_value else 0.0
                 }
-                for row in results
+                for row in sorted_results
             ]
         
         elif group_by == 'room':

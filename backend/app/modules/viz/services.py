@@ -75,7 +75,8 @@ class CostAnalysisService(BaseService):
                 departments=request.departments,
                 price_min=request.price_min,
                 price_max=request.price_max,
-                drug_categories=request.drug_categories
+                drug_categories=request.drug_categories,
+                max_items=200  # Limit to 200 items for better performance and readability
             )
         
         # Check if we have any data
@@ -123,10 +124,11 @@ class CostAnalysisService(BaseService):
                 'data': bubble_data,
                 'config': {
                     'type': 'bubble',
-                    'description': 'Unit Price vs Quantity vs Frequency',
+                    'description': 'Unit Price vs Quantity vs Frequency (Top 200 drugs, outliers filtered)',
                     'x_axis': 'unit_price',
                     'y_axis': 'quantity',
-                    'size': 'frequency'
+                    'size': 'frequency',
+                    'note': 'Shows top 200 drugs by frequency. Zero-priced items and extreme outliers filtered for better readability.'
                 }
             },
             'filters_applied': {

@@ -27,3 +27,9 @@ done
 echo "ERROR: PostgreSQL database did not become ready in time"
 exit 1
 
+
+
+
+
+
+

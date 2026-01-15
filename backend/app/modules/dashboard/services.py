@@ -234,9 +234,11 @@ class DashboardService(BaseService):
         
         years_compared = [point.year for point in data_points]
         
+        # Return structure that will be wrapped by format_success_response
+        # This avoids nested data.data structure
         return {
             'metric_type': filters.metric_type.value,
-            'data': [point.model_dump() for point in data_points],
+            'values': [point.model_dump() for point in data_points],
             'drug_code': filters.drug_code,
             'years_compared': years_compared
         }
@@ -247,7 +249,8 @@ class DashboardService(BaseService):
             raw_data = self.dal.get_category_analysis(
                 start_date=filters.start_date,
                 end_date=filters.end_date,
-                granularity=filters.granularity
+                granularity=filters.granularity,
+                limit=filters.limit
             )
         
         if not raw_data:
@@ -274,7 +277,8 @@ class DashboardService(BaseService):
                 'start': filters.start_date.isoformat(),
                 'end': filters.end_date.isoformat()
             },
-            'total_categories': unique_categories
+            'total_categories': unique_categories,
+            'limit': filters.limit
         }
     
     def get_patient_demographics(self, filters: PatientDemographicsRequest) -> Dict:

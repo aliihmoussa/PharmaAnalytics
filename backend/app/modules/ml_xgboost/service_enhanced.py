@@ -44,7 +44,8 @@ class EnhancedXGBoostForecastService:
         test_size: int = 30,
         lookback_days: Optional[int] = None,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        department: Optional[int] = None
     ) -> Dict:
         """
         Complete enhanced XGBoost forecasting pipeline with domain-specific features.
@@ -58,11 +59,15 @@ class EnhancedXGBoostForecastService:
             lookback_days: Optional number of days to look back
             start_date: Optional start date
             end_date: Optional end date
+            department: Optional consuming department ID (C.R) to filter by
         
         Returns:
             Dictionary with forecast results in frontend-ready format
         """
-        self.logger.info(f"Starting enhanced XGBoost forecast for {drug_code}")
+        if department:
+            self.logger.info(f"Starting enhanced XGBoost forecast for {drug_code} (department: {department})")
+        else:
+            self.logger.info(f"Starting enhanced XGBoost forecast for {drug_code}")
         
         # Step 1: Load enhanced transaction data with metadata
         self.logger.info("Step 1: Loading enhanced transaction data")
@@ -70,7 +75,8 @@ class EnhancedXGBoostForecastService:
             drug_code=drug_code,
             start_date=start_date,
             end_date=end_date,
-            lookback_days=lookback_days
+            lookback_days=lookback_days,
+            department=department
         )
         
         # Step 2: Enrich with aggregated features (category, department demand)

@@ -112,6 +112,7 @@ def get_enhanced_forecast(drug_code: str):
     - lookback_days: int (optional) - Limit historical data
     - start_date: YYYY-MM-DD (optional) - Start date for historical data
     - end_date: YYYY-MM-DD (optional) - End date for historical data
+    - department: int (optional) - Filter by consuming department (C.R)
     
     Returns:
         Frontend-ready forecast data with:
@@ -126,6 +127,10 @@ def get_enhanced_forecast(drug_code: str):
     test_size = int(request.args.get('test_size', 30))
     lookback_days = request.args.get('lookback_days')
     lookback_days = int(lookback_days) if lookback_days else None
+    
+    # Parse department parameter
+    department = request.args.get('department')
+    department = int(department) if department else None
     
     start_date = request.args.get('start_date')
     if start_date:

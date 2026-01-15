@@ -166,6 +166,7 @@ class CategoryAnalysisRequest(BaseModel):
     start_date: date
     end_date: date
     granularity: str = Field(default='monthly', pattern='^(monthly|quarterly)$')
+    limit: int = Field(default=10, ge=1, le=15, description='Limit number of top categories to return')
     
     @field_validator('end_date')
     @classmethod
@@ -186,10 +187,23 @@ class CategoryAnalysisRequest(BaseModel):
         if not end_date_str:
             raise ValueError("end_date is required")
         
+        # Parse limit parameter
+        limit = 10  # default
+        if 'limit' in params:
+            try:
+                limit = int(params.get('limit'))
+                if limit < 1:
+                    limit = 10
+                elif limit > 15:
+                    limit = 15
+            except (ValueError, TypeError):
+                limit = 10
+        
         return cls(
             start_date=parse_date(start_date_str),
             end_date=parse_date(end_date_str),
-            granularity=params.get('granularity', 'monthly')
+            granularity=params.get('granularity', 'monthly'),
+            limit=limit
         )
 
 

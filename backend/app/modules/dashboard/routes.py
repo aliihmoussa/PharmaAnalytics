@@ -1,6 +1,7 @@
 """Dashboard routes - API endpoints."""
 
-from flask import Blueprint, request, g
+import uuid
+from flask import Blueprint, request, g, jsonify
 
 from backend.app.modules.dashboard.requests import (
     TopDrugsRequest,
@@ -177,7 +178,19 @@ def get_year_comparison():
     filters = g.validated_data
     analytics_service = DashboardService()
     result = analytics_service.get_year_comparison(filters)
-    return format_success_response(result)
+    
+    # Restructure to avoid nested data.data
+    # Put data points directly in data key, with metadata at root level
+    return jsonify({
+        'data': result.get('values', []),
+        'drug_code': result.get('drug_code'),
+        'metric_type': result.get('metric_type'),
+        'years_compared': result.get('years_compared', []),
+        'meta': {
+            'request_id': getattr(g, 'request_id', str(uuid.uuid4())),
+            'status': 'success'
+        }
+    }), 200
 
 
 @dashboard_bp.route('/category-analysis', methods=['GET'])
@@ -193,6 +206,7 @@ def get_category_analysis():
     - start_date: YYYY-MM-DD (required)
     - end_date: YYYY-MM-DD (required)
     - granularity: 'monthly'|'quarterly' (default: 'monthly')
+    - limit: int (optional, default: 10, max: 15) - Limit number of top categories to return
     
     Returns: Category analysis data
     """
