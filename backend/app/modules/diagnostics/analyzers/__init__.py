@@ -1,4 +1,4 @@
-"""Diagnostics module for data profiling and time-series analysis."""
+"""Analyzers module for data profiling and time-series analysis."""
 
 from .profiler import DrugProfiler
 from .seasonality import SeasonalityDetector

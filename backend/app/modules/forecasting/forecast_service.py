@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import logging
 
+from backend.app.shared.base_service import BaseService
 from backend.app.modules.forecasting.utils.enhanced_data_preparation import (
     load_enhanced_transaction_data,
     enrich_with_aggregated_features,
@@ -17,7 +18,7 @@ from backend.app.modules.forecasting.utils.data_preparation import (
     create_train_test_split
 )
 from backend.app.modules.forecasting.features.xgboost_features import prepare_features
-from backend.app.modules.forecasting.models.xgboost_forecaster import XGBoostForecaster
+from backend.app.modules.forecasting.models.xgboost_model import XGBoostForecaster
 from backend.app.modules.forecasting.utils.evaluation import (
     calculate_metrics,
     create_results_dataframe,
@@ -30,12 +31,13 @@ from backend.app.database.session import get_db_session
 logger = logging.getLogger(__name__)
 
 
-class ForecastService:
+class ForecastService(BaseService):
     """Service for XGBoost forecasting with domain-specific features."""
     
     def __init__(self):
         """Initialize service."""
-        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__()
+        self.logger.info("ForecastService initialized")
     
     def forecast(
         self,

@@ -4,7 +4,6 @@ import logging
 from flask import Flask
 from flask_cors import CORS
 from backend.app.config import config
-from backend.app.database.connection import DatabaseConnection
 from backend.app.extensions import celery_app
 from backend.app.modules.ingestion.routes import ingestion_bp
 from backend.app.modules.analytics.routes import analytics_bp
@@ -39,13 +38,6 @@ def create_app():
         expose_headers=['Content-Type', 'X-Request-ID'],
         max_age=3600
     )
-    
-    # Initialize database connection pool
-    try:
-        DatabaseConnection.initialize_pool(min_conn=1, max_conn=20)
-        logger.info("Database connection pool initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize database pool: {e}")
     
     # Initialize Celery
     try:

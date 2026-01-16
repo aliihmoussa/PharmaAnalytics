@@ -74,11 +74,13 @@ class IngestionProcessor:
         
         try:
             # Update status to processing
-            self.dal.update_ingestion_log(
-                self.ingestion_log_id,
-                status='processing',
-                started_at=datetime.now()
-            )
+            dal = DataUploadDAL()
+            with dal:
+                dal.update_ingestion_log(
+                    self.ingestion_log_id,
+                    status='processing',
+                    started_at=datetime.now()
+                )
             
             # Detect file type
             file_type = self.ingestion.detect_file_type(file_path)
@@ -94,12 +96,14 @@ class IngestionProcessor:
         
         except Exception as e:
             logger.error(f"Error processing file {file_name}: {e}", exc_info=True)
-            self.dal.update_ingestion_log(
-                self.ingestion_log_id,
-                status='failed',
-                error_message=str(e),
-                completed_at=datetime.now()
-            )
+            dal = DataUploadDAL()
+            with dal:
+                dal.update_ingestion_log(
+                    self.ingestion_log_id,
+                    status='failed',
+                    error_message=str(e),
+                    completed_at=datetime.now()
+                )
             raise IngestionProcessingError(f"Failed to process file: {str(e)}")
     
     def _process_csv_file(self, file_path: Path, file_name: str) -> Tuple[int, int]:
@@ -112,10 +116,12 @@ class IngestionProcessor:
             raise IngestionProcessingError("File is empty")
         
         # Update total records
-        self.dal.update_ingestion_log(
-            self.ingestion_log_id,
-            total_records=total_rows
-        )
+        dal = DataUploadDAL()
+        with dal:
+            dal.update_ingestion_log(
+                self.ingestion_log_id,
+                total_records=total_rows
+            )
         
         if self.update_progress:
             self.update_progress(10, f"Loaded {total_rows} rows")
@@ -137,13 +143,15 @@ class IngestionProcessor:
         successful, failed = self._batch_insert(df)
         
         # Update final status
-        self.dal.update_ingestion_log(
-            self.ingestion_log_id,
-            status='completed',
-            successful_records=successful,
-            failed_records=failed,
-            completed_at=datetime.now()
-        )
+        dal = DataUploadDAL()
+        with dal:
+            dal.update_ingestion_log(
+                self.ingestion_log_id,
+                status='completed',
+                successful_records=successful,
+                failed_records=failed,
+                completed_at=datetime.now()
+            )
         
         if self.update_progress:
             self.update_progress(100, f"Completed: {successful} successful, {failed} failed")
@@ -171,10 +179,12 @@ class IngestionProcessor:
                 
                 # Update total records (approximate, will be updated as we process)
                 if chunk_count == 1:
-                    self.dal.update_ingestion_log(
-                        self.ingestion_log_id,
-                        total_records=total_rows
-                    )
+                    dal = DataUploadDAL()
+                    with dal:
+                        dal.update_ingestion_log(
+                            self.ingestion_log_id,
+                            total_records=total_rows
+                        )
                 
                 if self.update_progress:
                     progress = 10 + int((chunk_count * 70) / max(chunk_count, 1))
@@ -226,20 +236,22 @@ class IngestionProcessor:
                     # Log why records were filtered
                     logger.warning(f"Chunk {chunk_count}: All records were filtered out. Check validation logs above.")
             
-            # Update final total records
-            self.dal.update_ingestion_log(
-                self.ingestion_log_id,
-                total_records=total_rows
-            )
-            
-            # Update final status
-            self.dal.update_ingestion_log(
-                self.ingestion_log_id,
-                status='completed',
-                successful_records=total_successful,
-                failed_records=total_failed,
-                completed_at=datetime.now()
-            )
+            # Update final total records and status
+            dal = DataUploadDAL()
+            with dal:
+                dal.update_ingestion_log(
+                    self.ingestion_log_id,
+                    total_records=total_rows
+                )
+                
+                # Update final status
+                dal.update_ingestion_log(
+                    self.ingestion_log_id,
+                    status='completed',
+                    successful_records=total_successful,
+                    failed_records=total_failed,
+                    completed_at=datetime.now()
+                )
             
             if self.update_progress:
                 self.update_progress(100, f"Completed: {total_successful} successful, {total_failed} failed")
@@ -250,14 +262,16 @@ class IngestionProcessor:
         except Exception as e:
             logger.error(f"Error processing Excel file: {e}", exc_info=True)
             # Update status with partial results
-            self.dal.update_ingestion_log(
-                self.ingestion_log_id,
-                status='failed',
-                successful_records=total_successful,
-                failed_records=total_failed,
-                error_message=str(e),
-                completed_at=datetime.now()
-            )
+            dal = DataUploadDAL()
+            with dal:
+                dal.update_ingestion_log(
+                    self.ingestion_log_id,
+                    status='failed',
+                    successful_records=total_successful,
+                    failed_records=total_failed,
+                    error_message=str(e),
+                    completed_at=datetime.now()
+                )
             raise
     
     def _apply_cleaning_pipeline(self, df: pl.DataFrame, is_excel: bool = False) -> pl.DataFrame:
@@ -385,13 +399,15 @@ class IngestionProcessor:
                 logger.error(f"Error inserting batch {batch_idx + 1}: {e}")
                 failed += len(batch)
                 # Log errors for this batch
-                for record in batch:
-                    self.dal.log_ingestion_error(
-                        self.ingestion_log_id,
-                        error_type='insertion_error',
-                        error_message=str(e),
-                        raw_data=str(record)
-                    )
+                dal = DataUploadDAL()
+                with dal:
+                    for record in batch:
+                        dal.log_ingestion_error(
+                            self.ingestion_log_id,
+                            error_type='insertion_error',
+                            error_message=str(e),
+                            raw_data=str(record)
+                        )
         
         return successful, failed
     
@@ -456,12 +472,14 @@ class IngestionProcessor:
             # Skip records with null movement_number (required field)
             if movement_number is None:
                 skipped_count += 1
-                self.dal.log_ingestion_error(
-                    self.ingestion_log_id,
-                    error_type='validation_error',
-                    error_message='movement_number is required but was null',
-                    raw_data=str(record)
-                )
+                dal = DataUploadDAL()
+                with dal:
+                    dal.log_ingestion_error(
+                        self.ingestion_log_id,
+                        error_type='validation_error',
+                        error_message='movement_number is required but was null',
+                        raw_data=str(record)
+                    )
                 continue
             
             row = []

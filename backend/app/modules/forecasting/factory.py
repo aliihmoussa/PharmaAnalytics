@@ -2,7 +2,7 @@
 
 from typing import Dict, Type
 from backend.app.modules.forecasting.base_forecaster import BaseForecaster
-from backend.app.modules.forecasting.algorithms.xgboost_forecaster import XGBoostForecaster
+from backend.app.modules.forecasting.algorithms.xgboost_algorithm import XGBoostForecaster
 
 # Future implementations can be imported here:
 # from backend.app.modules.forecasting.algorithms.lstm_forecaster import LSTMForecaster

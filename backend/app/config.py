@@ -26,7 +26,7 @@ class Config(BaseSettings):
     def construct_database_url(self):
         """Construct DATABASE_URL if not provided, or parse it to extract components."""
         if self.DATABASE_URL:
-            # Parse DATABASE_URL to extract components for connection.py
+            # Parse DATABASE_URL to extract components for SQLAlchemy
             # Format: postgresql://user:password@host:port/database
             try:
                 from urllib.parse import urlparse

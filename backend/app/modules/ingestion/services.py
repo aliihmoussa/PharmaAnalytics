@@ -36,7 +36,7 @@ class IngestionService(BaseService):
     def __init__(self):
         """Initialize ingestion service with dependencies."""
         super().__init__()
-        self.dal = DataUploadDAL()
+        # DAL will be used with context manager pattern
         self.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         self.logger.info("IngestionService initialized")
     
@@ -107,15 +107,17 @@ class IngestionService(BaseService):
         # Calculate file hash
         file_hash = calculate_file_hash(saved_path)
         
-        # Check for duplicates (by hash or filename)
-        existing_log = self.dal.get_ingestion_log_by_filename(file_name)
-        if existing_log and existing_log.ingestion_status == 'completed':
-            # Clean up temp file
-            saved_path.unlink()
-            raise DuplicateFileError(f"File '{file_name}' has already been ingested")
-        
-        # Create ingestion log
-        ingestion_log = self.dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
+        # Check for duplicates (by hash or filename) and create ingestion log
+        dal = DataUploadDAL()
+        with dal:
+            existing_log = dal.get_ingestion_log_by_filename(file_name)
+            if existing_log and existing_log.ingestion_status == 'completed':
+                # Clean up temp file
+                saved_path.unlink()
+                raise DuplicateFileError(f"File '{file_name}' has already been ingested")
+            
+            # Create ingestion log
+            ingestion_log = dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
         
         # Submit Celery task
         task = process_ingestion_task.delay(
@@ -138,9 +140,11 @@ class IngestionService(BaseService):
         if isinstance(ingestion_log_id, str):
             ingestion_log_id = uuid.UUID(ingestion_log_id)
         
-        log_entry = self.dal.get_ingestion_log(ingestion_log_id)
-        if not log_entry:
-            raise IngestionJobNotFoundError(f"Ingestion log {ingestion_log_id} not found")
+        dal = DataUploadDAL()
+        with dal:
+            log_entry = dal.get_ingestion_log(ingestion_log_id)
+            if not log_entry:
+                raise IngestionJobNotFoundError(f"Ingestion log {ingestion_log_id} not found")
         
         # Try to get Celery task status if still processing
         # We store the task_id in the ingestion log or search by ingestion_log_id
@@ -149,24 +153,26 @@ class IngestionService(BaseService):
         # If status is still processing, check Celery task (task_id could be stored separately)
         # For MVP, we'll rely on database status updates from the task
         
-        return {
-            'ingestion_log_id': str(log_entry.id),  # Convert UUID to string
-            'file_name': log_entry.file_name,
-            'file_year': log_entry.file_year,
-            'status': log_entry.ingestion_status,
-            'total_records': log_entry.total_records,
-            'successful_records': log_entry.successful_records,
-            'failed_records': log_entry.failed_records,
-            'error_message': log_entry.error_message,
-            'started_at': log_entry.started_at.isoformat() if log_entry.started_at else None,
-            'completed_at': log_entry.completed_at.isoformat() if log_entry.completed_at else None,
-            'created_at': log_entry.created_at.isoformat() if log_entry.created_at else None,
-        }
+            return {
+                'ingestion_log_id': str(log_entry.id),  # Convert UUID to string
+                'file_name': log_entry.file_name,
+                'file_year': log_entry.file_year,
+                'status': log_entry.ingestion_status,
+                'total_records': log_entry.total_records,
+                'successful_records': log_entry.successful_records,
+                'failed_records': log_entry.failed_records,
+                'error_message': log_entry.error_message,
+                'started_at': log_entry.started_at.isoformat() if log_entry.started_at else None,
+                'completed_at': log_entry.completed_at.isoformat() if log_entry.completed_at else None,
+                'created_at': log_entry.created_at.isoformat() if log_entry.created_at else None,
+            }
     
     def list_ingestion_history(self, status: Optional[str] = None, limit: int = 50, offset: int = 0) -> list:
         """List ingestion history."""
-        logs = self.dal.list_ingestion_logs(status=status, limit=limit, offset=offset)
-        return [self._log_to_dict(log) for log in logs]
+        dal = DataUploadDAL()
+        with dal:
+            logs = dal.list_ingestion_logs(status=status, limit=limit, offset=offset)
+            return [self._log_to_dict(log) for log in logs]
     
     def cancel_ingestion(self, ingestion_log_id: Union[uuid.UUID, str]) -> bool:
         """Cancel a pending ingestion."""
@@ -174,27 +180,29 @@ class IngestionService(BaseService):
         if isinstance(ingestion_log_id, str):
             ingestion_log_id = uuid.UUID(ingestion_log_id)
         
-        log_entry = self.dal.get_ingestion_log(ingestion_log_id)
-        if not log_entry:
-            raise IngestionJobNotFoundError(f"Ingestion log {ingestion_log_id} not found")
-        
-        if log_entry.ingestion_status not in ['pending', 'processing']:
+        dal = DataUploadDAL()
+        with dal:
+            log_entry = dal.get_ingestion_log(ingestion_log_id)
+            if not log_entry:
+                raise IngestionJobNotFoundError(f"Ingestion log {ingestion_log_id} not found")
+            
+            if log_entry.ingestion_status not in ['pending', 'processing']:
+                return False
+            
+            # Try to revoke Celery task if processing
+            # Note: Celery task revocation requires task_id, which we'd need to store
+            # For MVP, we'll just update the database status
+            
+            # Update log status
+            if log_entry.ingestion_status in ['pending', 'processing']:
+                dal.update_ingestion_log(
+                    ingestion_log_id,
+                    status='cancelled',
+                    completed_at=datetime.now()
+                )
+                return True
+            
             return False
-        
-        # Try to revoke Celery task if processing
-        # Note: Celery task revocation requires task_id, which we'd need to store
-        # For MVP, we'll just update the database status
-        
-        # Update log status
-        if log_entry.ingestion_status in ['pending', 'processing']:
-            self.dal.update_ingestion_log(
-                ingestion_log_id,
-                status='cancelled',
-                completed_at=datetime.now()
-            )
-            return True
-        
-        return False
     
     def ingest_file_from_path(self, file_path: str, file_year: Optional[int] = None) -> dict:
         """
@@ -258,13 +266,15 @@ class IngestionService(BaseService):
         # Calculate file hash
         file_hash = calculate_file_hash(file_path_obj)
         
-        # Check for duplicates
-        existing_log = self.dal.get_ingestion_log_by_filename(file_name)
-        if existing_log and existing_log.ingestion_status == 'completed':
-            raise DuplicateFileError(f"File '{file_name}' has already been ingested")
-        
-        # Create ingestion log
-        ingestion_log = self.dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
+        # Check for duplicates and create ingestion log
+        dal = DataUploadDAL()
+        with dal:
+            existing_log = dal.get_ingestion_log_by_filename(file_name)
+            if existing_log and existing_log.ingestion_status == 'completed':
+                raise DuplicateFileError(f"File '{file_name}' has already been ingested")
+            
+            # Create ingestion log
+            ingestion_log = dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
         
         # Submit Celery task
         task = process_ingestion_task.delay(

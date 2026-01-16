@@ -2,7 +2,7 @@
 
 from typing import Optional, Dict
 from datetime import date
-from backend.app.modules.diagnostics.diagnostics import DrugProfiler
+from backend.app.modules.diagnostics.analyzers import DrugProfiler
 from backend.app.modules.diagnostics.cache import RedisCache
 from backend.app.shared.base_service import BaseService
 import logging
