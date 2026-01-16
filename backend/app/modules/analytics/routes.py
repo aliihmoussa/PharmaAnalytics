@@ -1,9 +1,13 @@
-"""Dashboard routes - API endpoints."""
+"""Analytics routes - Combined API endpoints from dashboard and viz modules."""
 
 import uuid
 from flask import Blueprint, request, g, jsonify
 
-from backend.app.modules.dashboard.requests import (
+from backend.app.modules.analytics.requests import (
+    # Cost analysis requests (from viz)
+    CostAnalysisRequest,
+    HospitalStayRequest,
+    # Dashboard analytics requests
     TopDrugsRequest,
     DrugDemandRequest,
     SummaryStatsRequest,
@@ -12,30 +16,92 @@ from backend.app.modules.dashboard.requests import (
     CategoryAnalysisRequest,
     PatientDemographicsRequest
 )
-from backend.app.modules.dashboard.serializers import (
-    TopDrugsResponse,
-    DrugDemandResponse,
-    SummaryStatsResponse,
-    ChartDataResponse,
-    YearComparisonResponse,
-    CategoryAnalysisResponse,
-    PatientDemographicsResponse
-)
-from backend.app.modules.dashboard.services import DashboardService
+from backend.app.modules.analytics.services import DashboardService
+from backend.app.modules.analytics.cost_services import CostAnalysisService
+from backend.app.modules.analytics.exceptions import NoDataFoundException
 from backend.app.shared.middleware import handle_exceptions, format_success_response, validate_request
 
-dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
+analytics_bp = Blueprint('analytics', __name__, url_prefix='/api/analytics')
 
 
-# Initialize service instance
+# ============================================================================
+# Cost Analysis Routes (from viz module)
+# ============================================================================
+
+@analytics_bp.route('/cost-analysis', methods=['GET'])
+@handle_exceptions
+@validate_request(CostAnalysisRequest)
+def get_cost_analysis():
+    """
+    GET /api/analytics/cost-analysis
+    
+    Get comprehensive cost analysis data for visualization.
+    
+    Query params:
+    - start_date: YYYY-MM-DD (required) - Start date for analysis
+    - end_date: YYYY-MM-DD (required) - End date for analysis
+    - departments: int[] (optional) - Filter by department IDs (comma-separated or multiple params)
+    - price_min: float (optional) - Minimum unit price filter
+    - price_max: float (optional) - Maximum unit price filter
+    - drug_categories: int[] (optional) - Filter by drug category IDs (comma-separated or multiple params)
+    
+    Returns:
+    - sunburst: Hierarchical data (Department → Category → Drug)
+    - top_cost_drivers: Top 20 cost drivers (horizontal bar chart data)
+    - cost_trends: Daily and monthly cost trends (line chart data)
+    - bubble_chart: Unit price vs quantity vs frequency (bubble chart data)
+    
+    Example:
+    GET /api/analytics/cost-analysis?start_date=2019-01-01&end_date=2019-12-31&departments=1,2,3&price_min=10.0&price_max=1000.0
+    """
+    filters = g.validated_data
+    service = CostAnalysisService()
+    result = service.get_cost_analysis(filters)
+    return format_success_response(result)
 
 
-@dashboard_bp.route('/top-drugs', methods=['GET'])
+@analytics_bp.route('/hospital-stay-duration', methods=['GET'])
+@handle_exceptions
+@validate_request(HospitalStayRequest)
+def get_hospital_stay_duration():
+    """
+    GET /api/analytics/hospital-stay-duration
+    
+    Get comprehensive hospital stay duration analysis for visualization.
+    
+    Query params:
+    - start_date: YYYY-MM-DD (required) - Start date for analysis
+    - end_date: YYYY-MM-DD (required) - End date for analysis
+    - departments: int[] (optional) - Filter by department IDs (comma-separated or multiple params)
+    - min_stay_days: int (optional) - Minimum stay duration in days
+    - max_stay_days: int (optional) - Maximum stay duration in days
+    
+    Returns:
+    - statistics: Summary statistics (average, median, min, max, std dev)
+    - distribution: Histogram data for stay duration distribution
+    - by_department: Average stay duration grouped by department
+    - trends: Monthly trends in stay duration
+    - patient_stays: Top 100 individual patient stay records
+    
+    Example:
+    GET /api/analytics/hospital-stay-duration?start_date=2019-01-01&end_date=2019-12-31&departments=1,2,3&min_stay_days=1&max_stay_days=30
+    """
+    filters = g.validated_data
+    service = CostAnalysisService()
+    result = service.get_hospital_stay_analysis(filters)
+    return format_success_response(result)
+
+
+# ============================================================================
+# Dashboard Analytics Routes (from dashboard module)
+# ============================================================================
+
+@analytics_bp.route('/top-drugs', methods=['GET'])
 @handle_exceptions
 @validate_request(TopDrugsRequest)
 def get_top_drugs():
     """
-    GET /api/dashboard/top-drugs
+    GET /api/analytics/top-drugs
     
     Get top dispensed drugs by quantity.
     
@@ -54,12 +120,12 @@ def get_top_drugs():
     return format_success_response(result)
 
 
-@dashboard_bp.route('/drug-demand', methods=['GET'])
+@analytics_bp.route('/drug-demand', methods=['GET'])
 @handle_exceptions
 @validate_request(DrugDemandRequest)
 def get_drug_demand():
     """
-    GET /api/dashboard/drug-demand
+    GET /api/analytics/drug-demand
     
     Get drug demand trends over time.
     
@@ -77,11 +143,11 @@ def get_drug_demand():
     return format_success_response(result)
 
 
-@dashboard_bp.route('/summary-stats', methods=['GET'])
+@analytics_bp.route('/summary-stats', methods=['GET'])
 @handle_exceptions
 def get_summary_stats():
     """
-    GET /api/dashboard/summary-stats
+    GET /api/analytics/summary-stats
     
     Get overall statistics for dashboard cards.
     
@@ -100,11 +166,11 @@ def get_summary_stats():
     return format_success_response(result)
 
 
-@dashboard_bp.route('/chart-data/<chart_type>', methods=['GET'])
+@analytics_bp.route('/chart-data/<chart_type>', methods=['GET'])
 @handle_exceptions
 def get_chart_data(chart_type: str):
     """
-    GET /api/dashboard/chart-data/{chart_type}
+    GET /api/analytics/chart-data/{chart_type}
     
     Get pre-formatted chart data for frontend visualization.
     
@@ -125,11 +191,11 @@ def get_chart_data(chart_type: str):
     return format_success_response(result)
 
 
-@dashboard_bp.route('/department-performance', methods=['GET'])
+@analytics_bp.route('/department-performance', methods=['GET'])
 @handle_exceptions
 def get_department_performance():
     """
-    GET /api/dashboard/department-performance
+    GET /api/analytics/department-performance
     
     Get department-level performance metrics.
     
@@ -152,18 +218,17 @@ def get_department_performance():
         )
     
     if not result:
-        from backend.app.modules.dashboard.exceptions import NoDataFoundException
         raise NoDataFoundException("No department data found")
     
     return format_success_response({'departments': result})
 
 
-@dashboard_bp.route('/year-comparison', methods=['GET'])
+@analytics_bp.route('/year-comparison', methods=['GET'])
 @handle_exceptions
 @validate_request(YearComparisonRequest)
 def get_year_comparison():
     """
-    GET /api/dashboard/year-comparison
+    GET /api/analytics/year-comparison
     
     Get year-over-year comparison metrics.
     
@@ -193,12 +258,12 @@ def get_year_comparison():
     }), 200
 
 
-@dashboard_bp.route('/category-analysis', methods=['GET'])
+@analytics_bp.route('/category-analysis', methods=['GET'])
 @handle_exceptions
 @validate_request(CategoryAnalysisRequest)
 def get_category_analysis():
     """
-    GET /api/dashboard/category-analysis
+    GET /api/analytics/category-analysis
     
     Get drug category analysis over time.
     
@@ -216,12 +281,12 @@ def get_category_analysis():
     return format_success_response(result)
 
 
-@dashboard_bp.route('/patient-demographics', methods=['GET'])
+@analytics_bp.route('/patient-demographics', methods=['GET'])
 @handle_exceptions
 @validate_request(PatientDemographicsRequest)
 def get_patient_demographics():
     """
-    GET /api/dashboard/patient-demographics
+    GET /api/analytics/patient-demographics
     
     Get patient demographics analysis.
     
@@ -236,3 +301,4 @@ def get_patient_demographics():
     filters = g.validated_data
     result = analytics_service.get_patient_demographics(filters)
     return format_success_response(result)
+

@@ -3,8 +3,8 @@
 from typing import Dict, List, Optional
 from datetime import date
 from backend.app.shared.base_service import BaseService
-from backend.app.modules.dashboard.queries import AnalyticsDAL
-from backend.app.modules.dashboard.requests import (
+from backend.app.modules.analytics.queries import AnalyticsDAL
+from backend.app.modules.analytics.requests import (
     TopDrugsRequest,
     DrugDemandRequest,
     ChartDataRequest,
@@ -13,14 +13,14 @@ from backend.app.modules.dashboard.requests import (
     CategoryAnalysisRequest,
     PatientDemographicsRequest
 )
-from backend.app.modules.dashboard.serializers import (
+from backend.app.modules.analytics.serializers import (
     DrugInfo,
     TimeSeriesPoint,
     YearDataPoint,
     CategoryDataPoint,
     DemographicsDataPoint
 )
-from backend.app.modules.dashboard.exceptions import NoDataFoundException, InvalidChartTypeException
+from backend.app.modules.analytics.exceptions import NoDataFoundException, InvalidChartTypeException
 
 
 class DashboardService(BaseService):

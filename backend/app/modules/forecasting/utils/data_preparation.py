@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Optional, List, Dict
 from datetime import date, timedelta
-from backend.app.modules.dashboard.queries import AnalyticsDAL
+from backend.app.modules.analytics.queries import AnalyticsDAL
 import logging
 
 logger = logging.getLogger(__name__)

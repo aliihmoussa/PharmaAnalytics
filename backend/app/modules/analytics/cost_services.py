@@ -2,9 +2,9 @@
 
 from typing import Dict
 from backend.app.shared.base_service import BaseService
-from backend.app.modules.viz.queries import CostAnalysisDAL
-from backend.app.modules.viz.requests import CostAnalysisRequest, HospitalStayRequest
-from backend.app.modules.dashboard.exceptions import NoDataFoundException
+from backend.app.modules.analytics.cost_queries import CostAnalysisDAL
+from backend.app.modules.analytics.requests import CostAnalysisRequest, HospitalStayRequest
+from backend.app.modules.analytics.exceptions import NoDataFoundException
 
 
 class CostAnalysisService(BaseService):

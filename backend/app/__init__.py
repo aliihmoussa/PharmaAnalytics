@@ -7,10 +7,9 @@ from backend.app.config import config
 from backend.app.database.connection import DatabaseConnection
 from backend.app.extensions import celery_app
 from backend.app.modules.ingestion.routes import ingestion_bp
-from backend.app.modules.dashboard.routes import dashboard_bp
+from backend.app.modules.analytics.routes import analytics_bp
 from backend.app.modules.diagnostics.routes import diagnostics_bp
 from backend.app.modules.forecasting.routes import forecasting_bp
-from backend.app.modules.viz.routes import viz_bp
 
 # Configure logging
 logging.basicConfig(
@@ -65,10 +64,9 @@ def create_app():
     
     # Register blueprints
     app.register_blueprint(ingestion_bp)
-    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(analytics_bp)
     app.register_blueprint(diagnostics_bp)
     app.register_blueprint(forecasting_bp)
-    app.register_blueprint(viz_bp)
     
     # Health check route at root
     @app.route('/')
