@@ -1,4 +1,4 @@
-"""Enhanced XGBoost forecasting service with domain-specific features - frontend-ready format."""
+"""Forecasting service for XGBoost with domain-specific features - frontend-ready format."""
 
 from typing import Dict, Optional
 from datetime import date, timedelta
@@ -7,31 +7,31 @@ import pandas as pd
 import numpy as np
 import logging
 
-from backend.app.modules.ml_xgboost.utils.enhanced_data_preparation import (
+from backend.app.modules.forecasting.utils.enhanced_data_preparation import (
     load_enhanced_transaction_data,
     enrich_with_aggregated_features,
     resample_to_daily_enhanced
 )
-from backend.app.modules.ml_xgboost.utils.data_preparation import (
+from backend.app.modules.forecasting.utils.data_preparation import (
     handle_missing_values,
     create_train_test_split
 )
-from backend.app.modules.ml_xgboost.features.xgboost_features import prepare_features
-from backend.app.modules.ml_xgboost.models.xgboost_forecaster import XGBoostForecaster
-from backend.app.modules.ml_xgboost.utils.evaluation import (
+from backend.app.modules.forecasting.features.xgboost_features import prepare_features
+from backend.app.modules.forecasting.models.xgboost_forecaster import XGBoostForecaster
+from backend.app.modules.forecasting.utils.evaluation import (
     calculate_metrics,
     create_results_dataframe,
     calculate_confidence_intervals
 )
-from backend.app.modules.ml_xgboost.utils.forecast_generator import create_future_features
+from backend.app.modules.forecasting.utils.forecast_generator import create_future_features
 from backend.app.database.models import DrugTransaction
 from backend.app.database.session import get_db_session
 
 logger = logging.getLogger(__name__)
 
 
-class EnhancedXGBoostForecastService:
-    """Enhanced service for XGBoost forecasting with domain-specific features."""
+class ForecastService:
+    """Service for XGBoost forecasting with domain-specific features."""
     
     def __init__(self):
         """Initialize service."""
@@ -48,7 +48,7 @@ class EnhancedXGBoostForecastService:
         department: Optional[int] = None
     ) -> Dict:
         """
-        Complete enhanced XGBoost forecasting pipeline with domain-specific features.
+        Complete XGBoost forecasting pipeline with domain-specific features.
         
         Returns frontend-ready format with historical and forecast data.
         
@@ -65,12 +65,12 @@ class EnhancedXGBoostForecastService:
             Dictionary with forecast results in frontend-ready format
         """
         if department:
-            self.logger.info(f"Starting enhanced XGBoost forecast for {drug_code} (department: {department})")
+            self.logger.info(f"Starting XGBoost forecast for {drug_code} (department: {department})")
         else:
-            self.logger.info(f"Starting enhanced XGBoost forecast for {drug_code}")
+            self.logger.info(f"Starting XGBoost forecast for {drug_code}")
         
-        # Step 1: Load enhanced transaction data with metadata
-        self.logger.info("Step 1: Loading enhanced transaction data")
+        # Step 1: Load transaction data with metadata
+        self.logger.info("Step 1: Loading transaction data with metadata")
         df = load_enhanced_transaction_data(
             drug_code=drug_code,
             start_date=start_date,
@@ -106,12 +106,12 @@ class EnhancedXGBoostForecastService:
                 f"{date_range_info}"
             )
         
-        # Step 4: Feature engineering with enhanced features
-        self.logger.info("Step 4: Creating features (including enhanced domain-specific)")
+        # Step 4: Feature engineering with domain-specific features
+        self.logger.info("Step 4: Creating features (including domain-specific features)")
         features_df = prepare_features(
             daily_data,
             target_col='QTY',
-            use_enhanced_features=True
+            use_domain_features=True
         )
         
         # Step 5: Train-test split

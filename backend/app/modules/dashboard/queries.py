@@ -215,22 +215,21 @@ class AnalyticsDAL:
         if not self._session:
             raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
         
+        # Filter base query first, then aggregate (correct approach)
+        # Only count consumption transactions (quantity < 0)
         results = self._session.query(
             DrugTransaction.cr.label('department_id'),
             func.count().label('transaction_count'),
-            func.sum(
-                func.abs(DrugTransaction.quantity)
-            ).filter(DrugTransaction.quantity < 0).label('total_dispensed'),
-            func.sum(
-                DrugTransaction.total_price
-            ).filter(DrugTransaction.quantity < 0).label('total_value'),
+            func.sum(func.abs(DrugTransaction.quantity)).label('total_dispensed'),
+            func.sum(DrugTransaction.total_price).label('total_value'),
             func.count(func.distinct(DrugTransaction.drug_code)).label('unique_drugs')
         ).filter(
-            DrugTransaction.transaction_date.between(start_date, end_date)
+            DrugTransaction.transaction_date.between(start_date, end_date),
+            DrugTransaction.quantity < 0  # Filter consumption transactions only
         ).group_by(
             DrugTransaction.cr
         ).order_by(
-            func.sum(func.abs(DrugTransaction.quantity)).filter(DrugTransaction.quantity < 0).desc()
+            func.sum(func.abs(DrugTransaction.quantity)).desc()
         ).limit(limit).all()
         
         return [
@@ -264,20 +263,19 @@ class AnalyticsDAL:
             raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
         
         # Build metric selection based on type
+        # Apply quantity < 0 filter at base query level (not on aggregation)
         if metric_type == 'quantity':
-            metric_expr = func.sum(
-                func.abs(DrugTransaction.quantity)
-            ).filter(DrugTransaction.quantity < 0)
+            metric_expr = func.sum(func.abs(DrugTransaction.quantity))
         elif metric_type == 'value':
-            metric_expr = func.sum(
-                DrugTransaction.total_price
-            ).filter(DrugTransaction.quantity < 0)
+            metric_expr = func.sum(DrugTransaction.total_price)
         else:  # transactions
-            metric_expr = func.count().filter(DrugTransaction.quantity < 0)
+            metric_expr = func.count()
         
         query = self._session.query(
             extract('year', DrugTransaction.transaction_date).label('year'),
             metric_expr.label('metric_value')
+        ).filter(
+            DrugTransaction.quantity < 0  # Filter consumption transactions only
         )
         
         if start_year:

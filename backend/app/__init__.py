@@ -9,7 +9,7 @@ from backend.app.extensions import celery_app
 from backend.app.modules.ingestion.routes import ingestion_bp
 from backend.app.modules.dashboard.routes import dashboard_bp
 from backend.app.modules.diagnostics.routes import diagnostics_bp
-from backend.app.modules.ml_xgboost.routes import ml_xgboost_bp
+from backend.app.modules.forecasting.routes import forecasting_bp
 from backend.app.modules.viz.routes import viz_bp
 
 # Configure logging
@@ -67,7 +67,7 @@ def create_app():
     app.register_blueprint(ingestion_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(diagnostics_bp)
-    app.register_blueprint(ml_xgboost_bp)
+    app.register_blueprint(forecasting_bp)
     app.register_blueprint(viz_bp)
     
     # Health check route at root

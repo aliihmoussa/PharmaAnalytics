@@ -6,6 +6,7 @@ This directory contains essential documentation for the PharmaAnalytics project.
 
 ### API Documentation
 - **`api/DASHBOARD_API_EXAMPLES.md`** - Complete API examples for dashboard endpoints
+- **`api/DIAGNOSTICS_API_DOCUMENTATION.md`** - Complete Diagnostics API guide with Next.js integration and chart ideas
 - **`api/EXCEL_UPLOAD_API.md`** - Excel file upload API documentation
 - **`api/EXCEL_UPLOAD_QUICK_REFERENCE.md`** - Quick reference for Excel upload
 - **`api/INGESTION_API_EXAMPLES.md`** - Data ingestion API examples
@@ -48,6 +49,7 @@ docs/
 
 - **Getting Started**: See `deployment/QUICK_START.md`
 - **API Examples**: See `api/DASHBOARD_API_EXAMPLES.md`
+- **Diagnostics API**: See `api/DIAGNOSTICS_API_DOCUMENTATION.md`
 - **ML Forecast**: See `ML_GRADIENT_BOOSTING_QUICK_START.md`
 - **Frontend Integration**: See `ML_FORECAST_FRONTEND_INTEGRATION.md`
 

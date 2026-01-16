@@ -1,4 +1,4 @@
-"""Enhanced domain-specific feature engineering for drug transaction data."""
+"""Domain-specific feature engineering for drug transaction data."""
 
 import pandas as pd
 import numpy as np
@@ -244,19 +244,21 @@ def create_admission_features(df: pd.DataFrame) -> pd.DataFrame:
     return features_df
 
 
-def create_enhanced_features(
+def create_domain_features(
     daily_data: pd.DataFrame,
     target_col: str = 'QTY'
 ) -> pd.DataFrame:
     """
-    Master function: create all enhanced domain-specific features.
+    Master function: create all domain-specific features for drug transactions.
+    
+    Creates features related to departments, categories, rooms, prices, and admissions.
     
     Args:
         daily_data: DataFrame with daily aggregated data including metadata
         target_col: Name of target column (default: 'QTY')
     
     Returns:
-        DataFrame with all enhanced features added
+        DataFrame with all domain-specific features added
     """
     features_df = daily_data.copy()
     
@@ -293,7 +295,7 @@ def create_enhanced_features(
     # Fill any remaining NaN values with 0
     features_df = features_df.fillna(0)
     
-    logger.info(f"Enhanced features created. Total columns: {len(features_df.columns)}")
+    logger.info(f"Domain features created. Total columns: {len(features_df.columns)}")
     
     return features_df
 
