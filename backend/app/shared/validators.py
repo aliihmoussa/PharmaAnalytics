@@ -58,7 +58,7 @@ def sanitize_string(
     
     # Remove leading/trailing whitespace
     if strip_whitespace:
-        sanitized = value.strip()
+    sanitized = value.strip()
     else:
         sanitized = value
     

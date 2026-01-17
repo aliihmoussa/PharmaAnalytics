@@ -6,9 +6,10 @@ A robust, scalable data analysis and machine learning solution for hospital phar
 
 This platform provides:
 - **Data Ingestion & Processing**: Efficient upload, validation, cleaning, and transformation of large datasets (800k+ records per file)
-- **Dashboard Analytics**: RESTful APIs for frontend visualization and reporting
-- **Machine Learning**: Framework for model training and prediction (future implementation)
-- **Scalable Architecture**: Three-module architecture with class-based services for maintainability
+- **Analytics & Visualization**: RESTful APIs for frontend visualization, reporting, and cost analysis
+- **Diagnostics**: Advanced data profiling, time-series analysis, and quality assessment
+- **Forecasting**: Machine learning-based demand forecasting using XGBoost
+- **Scalable Architecture**: Four-module architecture with class-based services for maintainability
 
 ## Technology Stack
 
@@ -24,12 +25,12 @@ This platform provides:
 
 ```
 PharmaAnalytics/
-├── backend/
-│   └── app/
+├── backend/                       # Backend application (separate from frontend)
+│   └── app/                       # Flask application
 │       ├── __init__.py           # Flask app factory
 │       ├── config.py             # Configuration settings
 │       ├── extensions.py         # Celery and extensions initialization
-│       ├── modules/              # Three main modules
+│       ├── modules/              # Four main feature modules
 │       │   ├── ingestion/        # Module 1: Data ingestion & processing
 │       │   │   ├── routes.py     # API endpoints
 │       │   │   ├── services.py   # Class-based service layer
@@ -38,67 +39,130 @@ PharmaAnalytics/
 │       │   │   ├── tasks.py      # Celery async tasks
 │       │   │   ├── ingestion.py  # File loading utilities
 │       │   │   ├── cleaning.py   # Data cleaning
-│       │   │   └── transformation.py # Data transformation
-│       │   ├── dashboard/        # Module 2: Dashboard & analytics
+│       │   │   ├── transformation.py # Data transformation
+│       │   │   ├── requests.py   # Pydantic request models
+│       │   │   ├── responses.py  # Response models
+│       │   │   ├── schema.py     # Data schemas
+│       │   │   └── exceptions.py # Module-specific exceptions
+│       │   ├── analytics/         # Module 2: Analytics & visualization
 │       │   │   ├── routes.py     # API endpoints
-│       │   │   ├── services.py   # Class-based service layer
+│       │   │   ├── services.py   # Dashboard service layer
+│       │   │   ├── cost_services.py # Cost analysis service
 │       │   │   ├── queries.py    # Complex database queries
+│       │   │   ├── cost_queries.py # Cost analysis queries
 │       │   │   ├── serializers.py # Response formatting
 │       │   │   ├── charts.py     # Chart generation
-│       │   │   └── dashboard_data.py # Dashboard data prep
-│       │   └── ml/               # Module 3: Machine Learning (placeholder)
-│       ├── shared/               # Shared utilities
+│       │   │   ├── dashboard_data.py # Dashboard data prep
+│       │   │   ├── requests.py   # Pydantic request models
+│       │   │   ├── themes.py     # Chart themes
+│       │   │   └── exceptions.py # Module-specific exceptions
+│       │   ├── diagnostics/       # Module 3: Data diagnostics & profiling
+│       │   │   ├── routes.py     # API endpoints
+│       │   │   ├── services/     # Service layer
+│       │   │   │   └── feature_service.py
+│       │   │   ├── analyzers/    # Analysis components
+│       │   │   │   ├── profiler.py # Drug profiler
+│       │   │   │   ├── seasonality.py # Seasonality detection
+│       │   │   │   ├── outliers.py # Outlier detection
+│       │   │   │   ├── decomposition.py # Time series decomposition
+│       │   │   │   ├── autocorrelation.py # ACF/PACF analysis
+│       │   │   │   └── classifier.py # Drug classification
+│       │   │   └── cache/        # Caching layer
+│       │   │       └── redis_cache.py
+│       │   └── forecasting/      # Module 4: Demand forecasting
+│       │       ├── routes.py     # API endpoints
+│       │       ├── forecast_service.py # Forecast service
+│       │       ├── base_forecaster.py # Base forecaster interface
+│       │       ├── factory.py    # Algorithm factory
+│       │       ├── parsers.py    # Request/response parsers
+│       │       ├── algorithms/   # Forecasting algorithms
+│       │       │   └── xgboost_algorithm.py
+│       │       ├── models/       # ML models
+│       │       │   └── xgboost_model.py
+│       │       ├── features/     # Feature engineering
+│       │       │   ├── domain_features.py
+│       │       │   └── xgboost_features.py
+│       │       └── utils/         # Utility functions
+│       │           ├── data_preparation.py
+│       │           ├── enhanced_data_preparation.py
+│       │           ├── evaluation.py
+│       │           └── forecast_generator.py
+│       ├── shared/               # Shared utilities across modules
 │       │   ├── base_service.py   # Base service class
 │       │   ├── middleware.py     # Error handling & request processing
 │       │   ├── exceptions.py     # Custom exceptions
-│       │   └── validators.py     # Validation utilities
+│       │   ├── validators.py     # Validation utilities
+│       │   └── background_jobs.py # Background job utilities
 │       └── database/             # Database layer
 │           ├── models.py         # SQLAlchemy models
-│           ├── connection.py     # Connection pooling
-│           ├── session.py        # Session management
-│           └── base.py           # Base repository pattern
-├── src/
-│   └── analysis/                 # Framework-agnostic analysis (for notebooks)
-│       ├── eda.py                # Exploratory data analysis
-│       ├── metrics.py            # Statistical metrics
-│       └── statistics.py         # Statistical functions
+│           └── session.py        # Session management
 ├── data/
 │   ├── schema/                   # Schema definitions
 │   └── uploads/                  # Uploaded files (temp & archive)
+├── migrations/                    # Alembic database migrations
 ├── notebooks/                     # Jupyter notebooks for exploration
-├── scripts/                       # Database setup scripts
+├── scripts/                       # Utility scripts
 ├── docker/                        # Docker configurations
 │   ├── Dockerfile.backend        # Production backend container
 │   └── Dockerfile.analysis       # Development/analysis container
+├── docs/                          # Documentation
 ├── run.py                         # Application entry point
 ├── celery_worker.py              # Celery worker entry point
 ├── requirements.txt               # Production dependencies
 └── requirements-dev.txt           # Development dependencies
 ```
 
-## Three-Module Architecture
+## Four-Module Architecture
+
+The application follows a **feature-based modular architecture** with clear separation of concerns:
+
+```
+backend/app/
+├── database/      # Database models and session management
+├── modules/       # Four feature modules (pipeline stages)
+│   ├── ingestion/    # Stage 1: Data ingestion
+│   ├── analytics/     # Stage 2: Analytics & visualization
+│   ├── diagnostics/   # Stage 3: Data diagnostics
+│   └── forecasting/   # Stage 4: Demand forecasting
+└── shared/        # Shared utilities across all modules
+```
 
 ### Module 1: Ingestion (`backend/app/modules/ingestion/`)
 **Purpose**: Handle all data ingestion and preprocessing
-- Upload and validate data files
+- Upload and validate data files (CSV, Excel)
 - Preprocess and clean data
 - Transform and standardize formats
 - Store processed data in database
+- Background processing with Celery
 - **API**: `/api/ingestion/*`
 
-### Module 2: Dashboard (`backend/app/modules/dashboard/`)
-**Purpose**: Provide APIs for frontend visualization
+### Module 2: Analytics (`backend/app/modules/analytics/`)
+**Purpose**: Provide APIs for frontend visualization and analytics
 - Retrieve processed data from database
-- Provide APIs for frontend visualization
-- Support dynamic charting and dashboard updates
-- **API**: `/api/dashboard/*`
+- Generate dashboard metrics and statistics
+- Cost analysis and reporting
+- Chart data preparation
+- Department performance metrics
+- **API**: `/api/analytics/*`
 
-### Module 3: Machine Learning (`backend/app/modules/ml/`)
-**Purpose**: Manage ML tasks (placeholder for future)
-- Train and maintain ML models
-- Generate predictions and insights
-- Expose results via APIs
-- **Status**: Not yet implemented
+### Module 3: Diagnostics (`backend/app/modules/diagnostics/`)
+**Purpose**: Advanced data profiling and quality assessment
+- Drug demand profiling and classification
+- Time-series characteristics analysis
+- Outlier detection
+- Seasonality detection
+- Autocorrelation analysis (ACF/PACF)
+- Data quality assessment and risk analysis
+- **API**: `/api/diagnostics/*`
+
+### Module 4: Forecasting (`backend/app/modules/forecasting/`)
+**Purpose**: Machine learning-based demand forecasting
+- XGBoost-based demand forecasting
+- Feature engineering for time-series
+- Model training and evaluation
+- Forecast generation with confidence intervals
+- Multiple algorithm support (factory pattern)
+- **API**: `/api/forecasting/*`
 
 ## Quick Start
 
@@ -162,20 +226,33 @@ PharmaAnalytics/
 
 ## API Endpoints
 
-### Ingestion Module
+### Ingestion Module (`/api/ingestion/*`)
 
 - `POST /api/ingestion/upload` - Upload a file for ingestion
 - `GET /api/ingestion/status/<ingestion_log_id>` - Get ingestion status
 - `GET /api/ingestion/history` - List ingestion history
 - `DELETE /api/ingestion/<ingestion_log_id>/cancel` - Cancel ingestion
 
-### Dashboard Module
+### Analytics Module (`/api/analytics/*`)
 
-- `GET /api/dashboard/top-drugs` - Top dispensed drugs
-- `GET /api/dashboard/drug-demand` - Drug demand trends over time
-- `GET /api/dashboard/summary-stats` - Overall statistics
-- `GET /api/dashboard/chart-data/<chart_type>` - Pre-formatted chart data
-- `GET /api/dashboard/department-performance` - Department metrics
+- `GET /api/analytics/top-drugs` - Top dispensed drugs
+- `GET /api/analytics/drug-demand` - Drug demand trends over time
+- `GET /api/analytics/summary-stats` - Overall statistics
+- `GET /api/analytics/chart-data/<chart_type>` - Pre-formatted chart data
+- `GET /api/analytics/department-performance` - Department metrics
+- `GET /api/analytics/cost-analysis` - Cost analysis data
+- `GET /api/analytics/hospital-stay` - Hospital stay analysis
+
+### Diagnostics Module (`/api/diagnostics/*`)
+
+- `GET /api/diagnostics/features/{drug_code}` - Get drug diagnostics and profiling
+- `GET /api/diagnostics/features/{drug_code}?department={dept_id}` - Filter by department
+- `GET /api/diagnostics/features/{drug_code}?start_date={date}&end_date={date}` - Date range filter
+
+### Forecasting Module (`/api/forecasting/*`)
+
+- `POST /api/forecasting/predict` - Generate demand forecast
+- `GET /api/forecasting/models` - List available forecasting models
 
 ### Example Requests
 
@@ -187,10 +264,15 @@ curl -X POST http://localhost:5000/api/ingestion/upload \
   -F "file_year=2023"
 
 # Get top drugs
-curl "http://localhost:5000/api/dashboard/top-drugs?start_date=2023-01-01&end_date=2023-12-31&limit=10"
+curl "http://localhost:5000/api/analytics/top-drugs?start_date=2023-01-01&end_date=2023-12-31&limit=10"
 
-# Get summary statistics
-curl "http://localhost:5000/api/dashboard/summary-stats?start_date=2023-01-01&end_date=2023-12-31"
+# Get drug diagnostics
+curl "http://localhost:5000/api/diagnostics/features/P182054?department=5"
+
+# Generate forecast
+curl -X POST http://localhost:5000/api/forecasting/predict \
+  -H "Content-Type: application/json" \
+  -d '{"drug_code": "P182054", "horizon": 30, "algorithm": "xgboost"}'
 ```
 
 ## Development
@@ -268,11 +350,24 @@ Frontend → API Endpoint (routes.py)
     Frontend
 ```
 
-### Module Interactions
+### Module Interactions (Pipeline Flow)
+
+```
+1. Ingestion Module
+   ↓ (stores data)
+   Database
+   ↓ (reads data)
+2. Analytics Module → Frontend (visualization)
+   ↓ (analyzes data)
+3. Diagnostics Module → Frontend (data quality insights)
+   ↓ (uses diagnostics)
+4. Forecasting Module → Frontend (predictions)
+```
 
 - **Ingestion Module** processes files and stores data in database
-- **Dashboard Module** reads processed data from database
-- **ML Module** (future) will consume processed data for training and predictions
+- **Analytics Module** reads processed data for visualization and reporting
+- **Diagnostics Module** analyzes data quality and patterns
+- **Forecasting Module** uses diagnostics insights for demand forecasting
 
 ## Database Schema
 
@@ -331,7 +426,7 @@ The project uses two Dockerfiles for different purposes:
   - Jupyter notebook server
   - Development dependencies (`requirements-dev.txt`)
   - Analysis tools (EDA, visualization)
-  - Notebook files and `src/analysis/` utilities
+  - Notebook files for data exploration
 - **Use Case**: Standalone container for data scientists to run notebooks
 - **Entry Point**: Jupyter notebook server
 - **Note**: Not currently used in `docker-compose.yml` but available for manual use
@@ -391,19 +486,31 @@ service = IngestionService()
 result = service.upload_file(file, "data.csv", 2023)
 ```
 
-### Using Analysis Utilities (Notebooks)
+### Using Backend Modules in Notebooks
 
-For notebook-based exploration:
+For notebook-based exploration, you can use the backend modules directly:
 
 ```python
-from src.analysis.eda import data_profile, detect_patterns
-from src.analysis.metrics import calculate_key_metrics
-from src.analysis.statistics import statistical_summary
+# Import from backend modules
+from backend.app.modules.analytics.services import DashboardService
+from backend.app.modules.diagnostics.analyzers import DrugProfiler
+from backend.app.modules.ingestion.ingestion import IngestionLoader
+
+# Use services
+service = DashboardService()
+analytics_data = service.get_top_drugs(start_date='2023-01-01', end_date='2023-12-31')
+
+# Use analyzers
+profiler = DrugProfiler()
+diagnostics = profiler.profile_drug('P182054')
+
+# Or use Polars/pandas directly for custom analysis
+import polars as pl
+import pandas as pd
 
 # Load and analyze data
-df = load_file('data/sample.csv')
-profile = data_profile(df)
-metrics = calculate_key_metrics(df)
+df = pl.read_csv('data/sample.csv')
+# Perform your analysis...
 ```
 
 ## Future Enhancements
@@ -412,25 +519,56 @@ metrics = calculate_key_metrics(df)
 - ✅ Background job processing with Celery
 - ✅ Redis integration for task queue
 - ✅ Class-based service architecture
-- 🔄 ML model integration for predictive analytics
+- ✅ ML model integration (XGBoost forecasting)
+- ✅ Data diagnostics and profiling
+- ✅ Advanced analytics and cost analysis
+- 🔄 Additional forecasting algorithms (ARIMA, Prophet, etc.)
 - 🔄 Advanced caching strategies
 - 🔄 Real-time analytics
 - 🔄 Authentication & authorization
 - 🔄 API rate limiting
+- 🔄 Model versioning and A/B testing
 
 ## Contributing
 
-1. Follow the three-module architecture pattern
+1. Follow the four-module architecture pattern
 2. Use class-based services (inherit from `BaseService`)
-3. Write tests for new features
-4. Update documentation
-5. Follow code style (black, flake8, mypy, isort)
+3. Follow the Routes → Services → DAL pattern
+4. Write tests for new features
+5. Update documentation
+6. Follow code style (black, flake8, mypy, isort)
+7. Use Pydantic models for request validation
+8. Follow naming conventions (see `docs/NAMING_CONVENTIONS_GUIDE.md`)
 
 ## Project Status
 
 - ✅ **Module 1 (Ingestion)**: Complete and functional
-- ✅ **Module 2 (Dashboard)**: Complete and functional
-- 🚧 **Module 3 (ML)**: Structure created, implementation pending
+- ✅ **Module 2 (Analytics)**: Complete and functional
+- ✅ **Module 3 (Diagnostics)**: Complete and functional
+- ✅ **Module 4 (Forecasting)**: Complete and functional (XGBoost)
+
+## Architecture Principles
+
+### Structure Philosophy
+
+```
+backend/
+└── app/                    # Flask application
+    ├── database/           # Database layer (models, session)
+    ├── modules/             # Feature modules (pipeline stages)
+    │   ├── ingestion/      # Stage 1: Data ingestion
+    │   ├── analytics/       # Stage 2: Analytics
+    │   ├── diagnostics/     # Stage 3: Diagnostics
+    │   └── forecasting/     # Stage 4: Forecasting
+    └── shared/              # Shared utilities
+```
+
+**Key Principles:**
+- **Feature-based modules**: Each module represents a pipeline stage
+- **Separation of concerns**: Database, modules, and shared utilities are clearly separated
+- **Consistent structure**: All modules follow Routes → Services → DAL pattern
+- **Shared utilities**: Common code in `shared/` to avoid duplication
+- **Scalable**: Easy to add new modules or extend existing ones
 
 ## License
 

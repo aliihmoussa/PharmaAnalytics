@@ -71,8 +71,8 @@ class DataUploadDAL:
         """Get ingestion log by file name."""
         self._ensure_session()
         return self._session.query(DataIngestionLog).filter(
-            DataIngestionLog.file_name == file_name
-        ).order_by(DataIngestionLog.created_at.desc()).first()
+                DataIngestionLog.file_name == file_name
+            ).order_by(DataIngestionLog.created_at.desc()).first()
     
     def update_ingestion_log(
         self,
@@ -125,14 +125,14 @@ class DataUploadDAL:
         self._ensure_session()
         
         query = self._session.query(DataIngestionLog)
-        
-        if status:
-            query = query.filter(DataIngestionLog.ingestion_status == status)
-        
-        query = query.order_by(DataIngestionLog.created_at.desc())
-        query = query.limit(limit).offset(offset)
-        
-        return query.all()
+            
+            if status:
+                query = query.filter(DataIngestionLog.ingestion_status == status)
+            
+            query = query.order_by(DataIngestionLog.created_at.desc())
+            query = query.limit(limit).offset(offset)
+            
+            return query.all()
     
     def log_ingestion_error(
         self,
