@@ -401,13 +401,13 @@ class IngestionProcessor:
                 # Log errors for this batch
                 dal = DataUploadDAL()
                 with dal:
-                for record in batch:
+                    for record in batch:
                         dal.log_ingestion_error(
-                        self.ingestion_log_id,
-                        error_type='insertion_error',
-                        error_message=str(e),
-                        raw_data=str(record)
-                    )
+                            self.ingestion_log_id,
+                            error_type='insertion_error',
+                            error_message=str(e),
+                            raw_data=str(record)
+                        )
         
         return successful, failed
     

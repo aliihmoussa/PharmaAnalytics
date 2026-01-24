@@ -3,7 +3,6 @@
 import re
 from datetime import date, datetime
 from typing import Optional, Any, Dict, List, Union
-import bleach
 import html
 
 
@@ -58,16 +57,16 @@ def sanitize_string(
     
     # Remove leading/trailing whitespace
     if strip_whitespace:
-    sanitized = value.strip()
+        sanitized = value.strip()
     else:
         sanitized = value
     
     # Remove HTML tags and escape HTML entities if HTML is not allowed
     if not allow_html:
-        # First, escape HTML entities to prevent XSS
+        # Escape HTML entities to prevent XSS
         sanitized = html.escape(sanitized, quote=True)
-        # Then use bleach to remove any remaining HTML tags
-        sanitized = bleach.clean(sanitized, tags=[], strip=True)
+        # Remove any HTML tags using regex (basic HTML tag removal)
+        sanitized = re.sub(r'<[^>]+>', '', sanitized)
     
     # Remove control characters (except newline, tab, carriage return)
     sanitized = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', sanitized)

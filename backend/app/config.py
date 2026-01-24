@@ -61,7 +61,7 @@ class Config(BaseSettings):
         return bool(v)
     
     # CORS Configuration
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002")
     
     # Redis Configuration - Used ONLY for Celery broker and result backend
     # Redis is NOT used as a database, only for Celery task queue

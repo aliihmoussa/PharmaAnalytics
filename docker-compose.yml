@@ -41,7 +41,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
+      network: host
     container_name: pharma_analytics_backend
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
       - DB_HOST=postgres
@@ -72,7 +76,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
+      network: host
     container_name: pharma_analytics_celery
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - DB_HOST=postgres
       - DB_USER=${DB_USER:-pharma_user}

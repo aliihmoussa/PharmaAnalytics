@@ -125,14 +125,14 @@ class DataUploadDAL:
         self._ensure_session()
         
         query = self._session.query(DataIngestionLog)
-            
-            if status:
-                query = query.filter(DataIngestionLog.ingestion_status == status)
-            
-            query = query.order_by(DataIngestionLog.created_at.desc())
-            query = query.limit(limit).offset(offset)
-            
-            return query.all()
+        
+        if status:
+            query = query.filter(DataIngestionLog.ingestion_status == status)
+        
+        query = query.order_by(DataIngestionLog.created_at.desc())
+        query = query.limit(limit).offset(offset)
+        
+        return query.all()
     
     def log_ingestion_error(
         self,

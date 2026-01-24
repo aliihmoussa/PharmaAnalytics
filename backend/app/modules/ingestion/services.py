@@ -180,29 +180,25 @@ class IngestionService(BaseService):
         if isinstance(ingestion_log_id, str):
             ingestion_log_id = uuid.UUID(ingestion_log_id)
         
-        dal = DataUploadDAL()
-        with dal:
+        with DataUploadDAL() as dal:
             log_entry = dal.get_ingestion_log(ingestion_log_id)
-        if not log_entry:
-            raise IngestionJobNotFoundError(f"Ingestion log {ingestion_log_id} not found")
-        
-        if log_entry.ingestion_status not in ['pending', 'processing']:
-            return False
-        
-        # Try to revoke Celery task if processing
-        # Note: Celery task revocation requires task_id, which we'd need to store
-        # For MVP, we'll just update the database status
-        
-        # Update log status
-        if log_entry.ingestion_status in ['pending', 'processing']:
-                dal.update_ingestion_log(
+            if not log_entry:
+                raise IngestionJobNotFoundError(f"Ingestion log {ingestion_log_id} not found")
+            
+            if log_entry.ingestion_status not in ['pending', 'processing']:
+                return False
+            
+            # Try to revoke Celery task if processing
+            # Note: Celery task revocation requires task_id, which we'd need to store
+            # For MVP, we'll just update the database status
+            
+            # Update log status
+            dal.update_ingestion_log(
                 ingestion_log_id,
                 status='cancelled',
                 completed_at=datetime.now()
             )
             return True
-        
-        return False
     
     def ingest_file_from_path(self, file_path: str, file_year: Optional[int] = None) -> dict:
         """
