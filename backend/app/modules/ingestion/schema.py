@@ -1,6 +1,7 @@
 """Field mapping and validation rules for hospital pharmacy data."""
 
 from typing import Dict, Optional
+import polars as pl
 
 # Field mappings based on sample data
 FIELD_MAPPINGS = {

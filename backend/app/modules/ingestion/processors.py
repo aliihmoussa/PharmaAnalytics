@@ -10,8 +10,8 @@ import io
 import csv
 
 from backend.app.modules.ingestion.ingestion import load_file
-from backend.app.modules.ingestion.transformation import prepare_for_database, calculate_derived_fields
-from backend.app.modules.ingestion.cleaning import generate_quality_report
+from backend.app.modules.ingestion.transformation import calculate_age_features, extract_time_features, prepare_for_database, calculate_derived_fields
+from backend.app.modules.ingestion.cleaning import create_derived_features, generate_quality_report
 from backend.app.database.models import DrugTransaction
 from backend.app.database.session import get_db_session, engine
 from backend.app.modules.ingestion.dal import DataUploadDAL
@@ -90,6 +90,10 @@ class IngestionProcessor:
             
             # Calculate derived fields if needed
             df = calculate_derived_fields(df)
+
+            df = create_derived_features(df)
+            df = extract_time_features(df)
+            df = calculate_age_features(df)
             
             if self.update_progress:
                 self.update_progress(30, "Data transformation completed")

@@ -1,5 +1,6 @@
 """Data transformation and normalization functions."""
 
+from turtle import pd
 import polars as pl
 from typing import Dict, Optional
 from datetime import datetime
@@ -182,3 +183,70 @@ def calculate_derived_fields(df: pl.DataFrame) -> pl.DataFrame:
     
     return df
 
+def create_derived_features(df: pl.DataFrame) -> pl.DataFrame:
+    """Create additional derived features"""
+
+    # Cost categories
+    try:
+        df['cost_category'] = pd.qcut(df['total_price'], q=4,
+                                      labels=['Low', 'Medium', 'High', 'Very High'],
+                                      duplicates='drop')
+    except ValueError:
+        # Fallback to cut if qcut fails
+        df['cost_category'] = pd.cut(df['total_price'], bins=4,
+                                     labels=['Low', 'Medium', 'High', 'Very High'])
+
+    # Quantity categories
+    try:
+        df['quantity_category'] = pd.qcut(df['quantity'], q=4,
+                                          labels=['Low', 'Medium', 'High', 'Very High'],
+                                          duplicates='drop')
+    except ValueError:
+        # Fallback to cut if qcut fails
+        df['quantity_category'] = pd.cut(df['quantity'], bins=4,
+                                         labels=['Low', 'Medium', 'High', 'Very High'])
+
+    # Transaction flags
+    # A new column where a 1 indicates the record is among the most expensive 25% of all entries (based on total_price)
+    df['is_high_cost'] = (df['total_price'] > df['total_price'].quantile(0.75)).astype(int)
+    # A new column where a 1 indicates the record has a volume/quantity in the top 25% (based on quantity)
+    df['is_high_quantity'] = (df['quantity'] >
+                              df['quantity'].quantile(0.75)).astype(int)
+    
+    return df
+
+def extract_time_features(df: pl.DataFrame) -> pl.DataFrame:
+    """Extract time-based features"""
+
+    # Time components
+    df['year'] = df['transaction_date'].dt.year
+    df['month'] = df['transaction_date'].dt.month
+    df['month_name'] = df['transaction_date'].dt.month_name()
+    df['quarter'] = df['transaction_date'].dt.quarter
+    df['day_of_week'] = df['transaction_date'].dt.dayofweek
+    df['day_name'] = df['transaction_date'].dt.day_name()
+    df['is_weekend'] = df['transaction_date'].isin([5, 6]).astype(int)
+
+    return df
+
+def calculate_age_features(df: pl.DataFrame) -> pl.DataFrame:
+    """Calculate age-related features"""
+    
+    MAX_AGE = 120
+
+    # Calculate age at admission
+    df['patient_age_at_admission'] = (
+        df['admission_date'] - df['patient_dob']
+    ).dt.days / 365.25
+
+    # Clip age to reasonable bounds
+    df['patient_age_at_admission'] = df['patient_age_at_admission'].clip(0, MAX_AGE)
+
+    # Create age groups
+    age_bins = [0, 18, 30, 40, 50, 60, 70, 80, 90, MAX_AGE]
+    age_labels = ['0-18', '19-30', '31-40', '41-50', '51-60',
+                  '61-70', '71-80', '81-90', '90+']
+    df['age_group'] = pd.cut(df['patient_age_at_admission'],
+                             bins=age_bins, labels=age_labels, right=False)
+
+    return df
