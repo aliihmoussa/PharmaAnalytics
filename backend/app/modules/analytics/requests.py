@@ -383,3 +383,57 @@ class PatientDemographicsRequest(BaseModel):
             group_by=params.get('group_by', 'age')
         )
 
+
+# Autocomplete Search Requests
+
+class DrugSearchRequest(BaseModel):
+    """Request model for drug autocomplete search endpoint."""
+    q: str = Field(..., min_length=3, description="Search query - minimum 3 characters")
+    limit: int = Field(default=3, ge=1, le=50, description="Maximum number of results to return")
+    
+    @classmethod
+    def from_query_params(cls, params):
+        """Create instance from Flask query parameters."""
+        query = params.get('q', '').strip()
+        
+        if not query:
+            raise ValueError("q parameter is required")
+        if len(query) < 3:
+            raise ValueError("q parameter must be at least 3 characters")
+        
+        limit = 3
+        if params.get('limit'):
+            try:
+                limit = int(params.get('limit'))
+                if limit < 1 or limit > 50:
+                    limit = 3
+            except (ValueError, TypeError):
+                limit = 3
+        
+        return cls(q=query, limit=limit)
+
+
+class DepartmentSearchRequest(BaseModel):
+    """Request model for department autocomplete search endpoint."""
+    q: str = Field(..., min_length=1, description="Search query for department name or ID")
+    limit: int = Field(default=3, ge=1, le=50, description="Maximum number of results to return")
+    
+    @classmethod
+    def from_query_params(cls, params):
+        """Create instance from Flask query parameters."""
+        query = params.get('q', '').strip()
+        
+        if not query:
+            raise ValueError("q parameter is required")
+        
+        limit = 3
+        if params.get('limit'):
+            try:
+                limit = int(params.get('limit'))
+                if limit < 1 or limit > 50:
+                    limit = 3
+            except (ValueError, TypeError):
+                limit = 3
+        
+        return cls(q=query, limit=limit)
+

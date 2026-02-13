@@ -314,3 +314,50 @@ class DashboardService(BaseService):
             'total_groups': len(data_points)
         }
 
+    def search_drugs(self, filters: 'DrugSearchRequest') -> Dict:
+        """Search for drugs by code or name.
+        
+        Args:
+            filters: DrugSearchRequest containing search query and limit
+            
+        Returns:
+            Dictionary with matching drugs
+        """
+        with self.dal:
+            results = self.dal.search_drugs(
+                query=filters.q,
+                limit=filters.limit
+            )
+        
+        return {
+            'results': results,
+            'query': filters.q,
+            'count': len(results),
+            'limit': filters.limit
+        }
+
+    def search_departments(self, filters: 'DepartmentSearchRequest') -> Dict:
+        """Search for departments by name or ID.
+        
+        Args:
+            filters: DepartmentSearchRequest containing search query and limit
+            
+        Returns:
+            Dictionary with matching departments
+        """
+        with self.dal:
+            results = self.dal.search_departments(
+                query=filters.q,
+                limit=filters.limit
+            )
+        
+        return {
+            'results': results,
+            'query': filters.q,
+            'count': len(results),
+            'limit': filters.limit
+        }
+
+
+
+

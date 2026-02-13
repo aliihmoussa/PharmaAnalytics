@@ -14,7 +14,10 @@ from backend.app.modules.analytics.requests import (
     ChartDataRequest,
     YearComparisonRequest,
     CategoryAnalysisRequest,
-    PatientDemographicsRequest
+    PatientDemographicsRequest,
+    # Search requests
+    DrugSearchRequest,
+    DepartmentSearchRequest
 )
 from backend.app.modules.analytics.services import DashboardService
 from backend.app.modules.analytics.cost_services import CostAnalysisService
@@ -300,5 +303,130 @@ def get_patient_demographics():
     analytics_service = DashboardService()
     filters = g.validated_data
     result = analytics_service.get_patient_demographics(filters)
+    return format_success_response(result)
+
+
+# ============================================================================
+# Autocomplete Search Routes
+# ============================================================================
+
+@analytics_bp.route('/drugs/search', methods=['GET'])
+@handle_exceptions
+def search_drugs():
+    """
+    GET /api/analytics/drugs/search?q={query}&limit={limit}
+    
+    Search for drugs by code or name (autocomplete).
+    
+    Query params:
+    - q: str (required, minimum 3 characters) - Search query
+    - limit: int (optional, default: 3, max: 50) - Maximum results to return
+    
+    Constraints:
+    - Case-insensitive search matching first 3+ characters of q
+    - Returns only active/available drugs (with negative quantities indicating dispensed)
+    - Default limit is 3, max limit is 50
+    
+    Returns:
+    - Array of objects with: id, drug_code, name
+    
+    Example:
+    GET /api/analytics/drugs/search?q=par&limit=5
+    """
+    # Manual validation since we're not using the decorator for this
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "q parameter is required",
+                "details": {}
+            },
+            "meta": {
+                "request_id": getattr(g, 'request_id', str(uuid.uuid4())),
+                "status": "error"
+            }
+        }), 400
+    
+    if len(query) < 3:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "q parameter must be at least 3 characters",
+                "details": {}
+            },
+            "meta": {
+                "request_id": getattr(g, 'request_id', str(uuid.uuid4())),
+                "status": "error"
+            }
+        }), 400
+    
+    limit = 3
+    if request.args.get('limit'):
+        try:
+            limit = int(request.args.get('limit'))
+            if limit < 1 or limit > 50:
+                limit = 3
+        except (ValueError, TypeError):
+            limit = 3
+    
+    from backend.app.modules.analytics.requests import DrugSearchRequest
+    filters = DrugSearchRequest(q=query, limit=limit)
+    service = DashboardService()
+    result = service.search_drugs(filters)
+    return format_success_response(result)
+
+
+@analytics_bp.route('/departments/search', methods=['GET'])
+@handle_exceptions
+def search_departments():
+    """
+    GET /api/analytics/departments/search?q={query}&limit={limit}
+    
+    Search for departments by name or ID (autocomplete).
+    
+    Query params:
+    - q: str (required) - Search query (department name or ID)
+    - limit: int (optional, default: 3, max: 50) - Maximum results to return
+    
+    Constraints:
+    - Case-insensitive search
+    - Returns top 3 matches by default
+    - Maximum limit is 50
+    
+    Returns:
+    - Array of objects with: id, department_name
+    
+    Example:
+    GET /api/analytics/departments/search?q=ICU&limit=5
+    """
+    # Manual validation
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "q parameter is required",
+                "details": {}
+            },
+            "meta": {
+                "request_id": getattr(g, 'request_id', str(uuid.uuid4())),
+                "status": "error"
+            }
+        }), 400
+    
+    limit = 3
+    if request.args.get('limit'):
+        try:
+            limit = int(request.args.get('limit'))
+            if limit < 1 or limit > 50:
+                limit = 3
+        except (ValueError, TypeError):
+            limit = 3
+    
+    from backend.app.modules.analytics.requests import DepartmentSearchRequest
+    filters = DepartmentSearchRequest(q=query, limit=limit)
+    service = DashboardService()
+    result = service.search_departments(filters)
     return format_success_response(result)
 

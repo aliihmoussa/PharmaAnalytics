@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 from datetime import date, datetime
-from sqlalchemy import func, extract, case
+from sqlalchemy import func, extract, case, String
 from sqlalchemy.orm import Session
 from backend.app.database.models import DrugTransaction
 from backend.app.database.session import get_db_session
@@ -516,3 +516,92 @@ class AnalyticsDAL:
                 }
                 for row in results
             ]
+
+    def search_drugs(self, query: str, limit: int = 3) -> List[Dict]:
+        """Search for drugs by code or name with case-insensitive matching.
+        
+        Args:
+            query: Search query (minimum 3 characters)
+            limit: Maximum number of results to return (default: 3)
+            
+        Returns:
+            List of drug matches with id, drug_code, and name
+        """
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
+        # Get distinct drugs where code or name starts with query
+        # Filter for active drugs (quantity < 0 indicates dispensed/available)
+        results = self._session.query(
+            DrugTransaction.drug_code,
+            DrugTransaction.drug_name
+        ).filter(
+            (func.lower(DrugTransaction.drug_code).startswith(func.lower(query))) |
+            (func.lower(DrugTransaction.drug_name).startswith(func.lower(query))),
+            DrugTransaction.quantity < 0  # Active/dispensed drugs
+        ).distinct(
+            DrugTransaction.drug_code,
+            DrugTransaction.drug_name
+        ).order_by(
+            DrugTransaction.drug_code,
+            DrugTransaction.drug_name
+        ).limit(limit).all()
+        
+        return [
+            {
+                'id': row.drug_code,
+                'drug_code': row.drug_code,
+                'name': row.drug_name
+            }
+            for row in results
+        ]
+
+    def search_departments(self, query: str, limit: int = 3) -> List[Dict]:
+        """Search for departments by ID or name with case-insensitive matching.
+        
+        Args:
+            query: Search query
+            limit: Maximum number of results to return (default: 3)
+            
+        Returns:
+            List of department matches with id and department_name
+        """
+        if not self._session:
+            raise RuntimeError("Database session not initialized. Use 'with AnalyticsDAL() as dal:'")
+        
+        # Search for distinct departments by code (cr - consuming department)
+        # Try to match as integer first, then as string prefix
+        search_results = []
+        
+        try:
+            # Try parsing as integer first
+            dept_id = int(query)
+            search_results = self._session.query(
+                DrugTransaction.cr.label('dept_id')
+            ).filter(
+                DrugTransaction.cr == dept_id,
+                DrugTransaction.cr.isnot(None)
+            ).distinct(
+                DrugTransaction.cr
+            ).limit(limit).all()
+        except (ValueError, TypeError):
+            pass
+        
+        # If no results from integer search, try string matching
+        if not search_results:
+            search_results = self._session.query(
+                DrugTransaction.cr.label('dept_id')
+            ).filter(
+                DrugTransaction.cr.isnot(None),
+                func.lower(func.cast(DrugTransaction.cr, String)).like(func.lower(query) + '%')
+            ).distinct(
+                DrugTransaction.cr
+            ).limit(limit).all()
+        
+        return [
+            {
+                'id': row.dept_id,
+                'department_name': f'Department {row.dept_id}'
+            }
+            for row in search_results
+        ]
