@@ -1,7 +1,8 @@
 """Analytics routes - Combined API endpoints from dashboard and viz modules."""
 
 import uuid
-from flask import Blueprint, request, g, jsonify
+from flask import Blueprint, request, g, jsonify, send_file
+from datetime import datetime
 
 from backend.app.modules.analytics.requests import (
     # Cost analysis requests (from viz)
@@ -21,6 +22,7 @@ from backend.app.modules.analytics.requests import (
 )
 from backend.app.modules.analytics.services import DashboardService
 from backend.app.modules.analytics.cost_services import CostAnalysisService
+from backend.app.modules.analytics.report_generator import ReportGenerator
 from backend.app.modules.analytics.exceptions import NoDataFoundException
 from backend.app.shared.middleware import handle_exceptions, format_success_response, validate_request
 
@@ -62,6 +64,139 @@ def get_cost_analysis():
     result = service.get_cost_analysis(filters)
     return format_success_response(result)
 
+
+@analytics_bp.route('/cost-analysis/report', methods=['GET'])
+@handle_exceptions
+@validate_request(CostAnalysisRequest)
+def get_cost_analysis_report():
+    """
+    GET /api/analytics/cost-analysis/report
+    
+    Generate a professional DOCX or PDF report with cost analysis data.
+    
+    Query params:
+    - start_date: YYYY-MM-DD (required) - Start date for analysis
+    - end_date: YYYY-MM-DD (required) - End date for analysis
+    - format: str (required) - Report format: 'docx' or 'pdf' (default: 'docx')
+    - departments: int[] (optional) - Filter by department IDs (comma-separated or multiple params)
+    - price_min: float (optional) - Minimum unit price filter
+    - price_max: float (optional) - Maximum unit price filter
+    - drug_categories: int[] (optional) - Filter by drug category IDs (comma-separated or multiple params)
+    
+    Returns:
+    - File download (DOCX or PDF) containing professional cost analysis report with:
+      * Executive summary
+      * Cost overview by department
+      * Top 20 cost drivers with detailed analysis
+      * Cost trends and patterns
+      * Department-level analysis
+      * Drug category breakdown
+    
+    Example:
+    GET /api/analytics/cost-analysis/report?start_date=2019-01-01&end_date=2019-12-31&format=pdf
+    """
+    filters = g.validated_data
+    report_format = request.args.get('format', 'docx').lower()
+    
+    if report_format not in ['docx', 'pdf']:
+        return jsonify({'error': 'Invalid format. Must be "docx" or "pdf"'}), 400
+    
+    # Get cost analysis data
+    service = CostAnalysisService()
+    cost_data = service.get_cost_analysis(filters)
+    
+    # Generate report
+    generator = ReportGenerator()
+    
+    filters_dict = {
+        'start_date': filters.start_date.isoformat(),
+        'end_date': filters.end_date.isoformat(),
+        'departments': filters.departments,
+        'price_min': filters.price_min,
+        'price_max': filters.price_max,
+        'drug_categories': filters.drug_categories
+    }
+    
+    if report_format == 'docx':
+        report_file = generator.generate_docx_report(cost_data, filters_dict)
+        filename = f"Cost_Analysis_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    else:  # pdf
+        report_file = generator.generate_pdf_report(cost_data, filters_dict)
+        filename = f"Cost_Analysis_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        mimetype = 'application/pdf'
+    
+    return send_file(
+        report_file,
+        mimetype=mimetype,
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+
+"""
+ADD THIS ROUTE TO: backend/app/modules/analytics/routes.py
+(after the existing /cost-analysis/report route)
+
+NOTE: URL is /hospital-stay/report to match the frontend call:
+  src/api/endpoints/export/cost-analysis/index.ts → /analytics/hospital-stay/report
+"""
+
+@analytics_bp.route('/hospital-stay/report', methods=['GET'])
+@handle_exceptions
+@validate_request(HospitalStayRequest)
+def get_hospital_stay_report():
+    """
+    GET /api/analytics/hospital-stay/report
+
+    Generate a professional DOCX or PDF report with hospital stay duration analysis.
+
+    Query params:
+    - start_date: YYYY-MM-DD (required)
+    - end_date: YYYY-MM-DD (required)
+    - format: 'docx' | 'pdf' (default: 'docx')
+    - departments: int[] (optional, comma-separated)
+    - min_stay_days: int (optional)
+    - max_stay_days: int (optional)
+
+    Example:
+    GET /api/analytics/hospital-stay/report?start_date=2019-01-01&end_date=2019-12-31&format=pdf
+    """
+    filters = g.validated_data
+    report_format = request.args.get('format', 'docx').lower()
+
+    if report_format not in ['docx', 'pdf']:
+        return jsonify({'error': 'Invalid format. Must be "docx" or "pdf"'}), 400
+
+    service = CostAnalysisService()
+    stay_data = service.get_hospital_stay_analysis(filters)
+
+    generator = ReportGenerator()
+
+    filters_dict = {
+        'start_date': filters.start_date.isoformat(),
+        'end_date': filters.end_date.isoformat(),
+        'departments': filters.departments,
+        'min_stay_days': filters.min_stay_days,
+        'max_stay_days': filters.max_stay_days,
+    }
+
+    if report_format == 'docx':
+        report_file = generator.generate_hospital_stay_docx_report(stay_data, filters_dict)
+        filename = f"Hospital_Stay_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    else:
+        report_file = generator.generate_hospital_stay_pdf_report(stay_data, filters_dict)
+        filename = f"Hospital_Stay_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        mimetype = 'application/pdf'
+
+    return send_file(
+        report_file,
+        mimetype=mimetype,
+        as_attachment=True,
+        download_name=filename
+    )
 
 @analytics_bp.route('/hospital-stay-duration', methods=['GET'])
 @handle_exceptions
@@ -429,4 +564,6 @@ def search_departments():
     service = DashboardService()
     result = service.search_departments(filters)
     return format_success_response(result)
+
+
 

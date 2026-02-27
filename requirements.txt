@@ -25,11 +25,13 @@ xgboost==2.0.3
 joblib==1.3.2  # Model serialization
 holidays==0.34  # Holiday calendar for time series features
 
-# Note: Visualization libraries removed for faster Docker builds
-# Add them back when needed:
-# plotly==5.18.0
-# seaborn==0.13.0
-# matplotlib==3.8.2
+# Visualization & Report Generation
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.18.0
+python-docx==0.8.11  # DOCX report generation
+reportlab==4.0.9  # PDF report generation
+Pillow==10.1.0  # Image handling for reports
 
 # Environment & Configuration
 python-dotenv==1.0.0

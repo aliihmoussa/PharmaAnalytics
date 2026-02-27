@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cost Analysis Report Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #1f4788;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            color: #1f4788;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 2px;
+            margin-right: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="date"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="date"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            margin: 0;
+            font-weight: 400;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-docx {
+            background: #1f4788;
+            color: white;
+        }
+
+        .btn-docx:hover:not(:disabled) {
+            background: #163a60;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(31, 71, 136, 0.3);
+        }
+
+        .btn-pdf {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-pdf:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-spinner.active {
+            display: inline-block;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .error-box {
+            background: #ffe7e7;
+            border-left: 4px solid #dc3545;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+            color: #833;
+            font-size: 13px;
+            display: none;
+        }
+
+        .success-box {
+            background: #e7ffe7;
+            border-left: 4px solid #28a745;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+            color: #333;
+            font-size: 13px;
+            display: none;
+        }
+
+        .error-box.show,
+        .success-box.show {
+            display: block;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .preset-btn {
+            background: #f5f5f5;
+            color: #333;
+            padding: 10px;
+            font-size: 13px;
+            border: 1px solid #ddd;
+        }
+
+        .preset-btn:hover {
+            background: #e8e8e8;
+        }
+
+        .filter-help {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Cost Analysis Report Generator</h1>
+            <p>Generate professional DOCX and PDF reports with pharmaceutical cost analysis data</p>
+        </div>
+
+        <div class="info-box">
+            💡 Select your analysis period and filters, then generate a report in your preferred format.
+        </div>
+
+        <form id="reportForm">
+            <!-- Date Range Section -->
+            <div class="form-section">
+                <div class="section-title">Analysis Period</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="startDate">Start Date *</label>
+                        <input type="date" id="startDate" name="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="endDate">End Date *</label>
+                        <input type="date" id="endDate" name="endDate" required>
+                    </div>
+                </div>
+                <div class="preset-buttons">
+                    <button type="button" class="preset-btn" onclick="setPreset('lastMonth')">📅 Last Month</button>
+                    <button type="button" class="preset-btn" onclick="setPreset('last3Months')">📅 Last 3 Months</button>
+                    <button type="button" class="preset-btn" onclick="setPreset('lastYear')">📅 Last Year</button>
+                    <button type="button" class="preset-btn" onclick="setPreset('wholeYear')">📅 Whole Year 2019</button>
+                </div>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="form-section">
+                <div class="section-title">Filters (Optional)</div>
+                
+                <div class="form-group">
+                    <label for="departments">Departments</label>
+                    <input type="text" id="departments" name="departments" placeholder="e.g., 1,2,3">
+                    <div class="filter-help">Leave blank for all departments, or enter comma-separated IDs</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="priceMin">Min Price ($)</label>
+                        <input type="number" id="priceMin" name="priceMin" placeholder="0" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="priceMax">Max Price ($)</label>
+                        <input type="number" id="priceMax" name="priceMax" placeholder="Unlimited" min="0" step="0.01">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="drugCategories">Drug Categories</label>
+                    <input type="text" id="drugCategories" name="drugCategories" placeholder="e.g., 1,2,3">
+                    <div class="filter-help">Leave blank for all categories, or enter comma-separated IDs</div>
+                </div>
+            </div>
+
+            <!-- Download Buttons -->
+            <div class="button-group">
+                <button type="button" class="btn-docx" onclick="downloadReport('docx')">
+                    <div class="btn-wrapper">
+                        <div class="loading-spinner" id="spinnerDocx"></div>
+                        <span>📄 Download DOCX</span>
+                    </div>
+                </button>
+                <button type="button" class="btn-pdf" onclick="downloadReport('pdf')">
+                    <div class="btn-wrapper">
+                        <div class="loading-spinner" id="spinnerPdf"></div>
+                        <span>📑 Download PDF</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Messages -->
+            <div class="error-box" id="errorBox"></div>
+            <div class="success-box" id="successBox"></div>
+        </form>
+    </div>
+
+    <script>
+        // Set initial dates
+        function initializeDates() {
+            const today = new Date();
+            const year = today.getFullYear();
+            
+            // Set to 2019 for demo purposes
+            document.getElementById('startDate').value = '2019-01-01';
+            document.getElementById('endDate').value = '2019-12-31';
+        }
+
+        // Preset date ranges
+        function setPreset(preset) {
+            const today = new Date();
+            const year = 2019; // Demo year
+            let start, end;
+
+            const endDate = new Date(year, 11, 31); // End of 2019
+
+            switch (preset) {
+                case 'lastMonth':
+                    start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    end = new Date(today.getFullYear(), today.getMonth(), 0);
+                    break;
+                case 'last3Months':
+                    start = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
+                    end = today;
+                    break;
+                case 'lastYear':
+                    start = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+                    end = today;
+                    break;
+                case 'wholeYear':
+                    start = new Date(year, 0, 1);
+                    end = new Date(year, 11, 31);
+                    break;
+            }
+
+            document.getElementById('startDate').value = start.toISOString().split('T')[0];
+            document.getElementById('endDate').value = end.toISOString().split('T')[0];
+        }
+
+        // Download report
+        async function downloadReport(format) {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const departments = document.getElementById('departments').value;
+            const priceMin = document.getElementById('priceMin').value;
+            const priceMax = document.getElementById('priceMax').value;
+            const drugCategories = document.getElementById('drugCategories').value;
+
+            // Validate dates
+            if (!startDate || !endDate) {
+                showError('Please select both start and end dates');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                showError('Start date must be before end date');
+                return;
+            }
+
+            // Show loading
+            const spinner = document.getElementById(`spinner${format.charAt(0).toUpperCase() + format.slice(1)}`);
+            const button = event.target.closest('button');
+            spinner.classList.add('active');
+            button.disabled = true;
+
+            try {
+                // Build params
+                const params = new URLSearchParams({
+                    start_date: startDate,
+                    end_date: endDate,
+                    format: format
+                });
+
+                if (departments) params.append('departments', departments);
+                if (priceMin) params.append('price_min', priceMin);
+                if (priceMax) params.append('price_max', priceMax);
+                if (drugCategories) params.append('drug_categories', drugCategories);
+
+                // Fetch report
+                const response = await fetch(`/api/analytics/cost-analysis/report?${params}`, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP ${response.status}`);
+                }
+
+                // Download file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Cost_Analysis_Report_${new Date().getTime()}.${format}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                showSuccess(`Report generated and downloaded successfully!`);
+            } catch (error) {
+                console.error('Error:', error);
+                showError(`Failed to generate report: ${error.message}`);
+            } finally {
+                spinner.classList.remove('active');
+                button.disabled = false;
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorBox = document.getElementById('errorBox');
+            const successBox = document.getElementById('successBox');
+            errorBox.textContent = '❌ ' + message;
+            errorBox.classList.add('show');
+            successBox.classList.remove('show');
+            setTimeout(() => errorBox.classList.remove('show'), 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successBox = document.getElementById('successBox');
+            const errorBox = document.getElementById('errorBox');
+            successBox.textContent = '✅ ' + message;
+            successBox.classList.add('show');
+            errorBox.classList.remove('show');
+            setTimeout(() => successBox.classList.remove('show'), 5000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeDates);
+    </script>
+</body>
+</html>
