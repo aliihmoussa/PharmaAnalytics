@@ -32,6 +32,19 @@ def handle_exceptions(f):
                     "status": "error"
                 }
             }), e.status_code
+        except ValueError as e:
+            logger.error(f"Validation error [{g.request_id}]: {str(e)}", exc_info=True)
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": str(e),
+                    "details": {}
+                },
+                "meta": {
+                    "request_id": g.request_id,
+                    "status": "error"
+                }
+            }), 400
         except Exception as e:
             logger.error(f"Unexpected error [{g.request_id}]: {str(e)}", exc_info=True)
             return jsonify({
@@ -64,6 +77,10 @@ def validate_request(model_class):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip validation for OPTIONS requests (handled by CORS)
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+            
             try:
                 if request.method == 'GET':
                     validated_data = model_class.from_query_params(request.args)

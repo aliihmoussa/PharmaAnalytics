@@ -8,15 +8,27 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Upgrade pip and setuptools to latest versions
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with increased timeout, retries, and DNS fallback
+# Using --trusted-host to avoid SSL issues and multiple retries
+RUN pip install --no-cache-dir \
+    --default-timeout=300 \
+    --retries=10 \
+    --trusted-host pypi.org \
+    --trusted-host pypi.python.org \
+    --trusted-host files.pythonhosted.org \
+    -r requirements.txt
 
 # Copy application code
 COPY backend /app/backend
 COPY data /app/data
+COPY migrations /app/migrations
+COPY alembic.ini /app/alembic.ini
 
 # Copy entry points
 COPY run.py celery_worker.py ./

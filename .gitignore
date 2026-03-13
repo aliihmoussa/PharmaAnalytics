@@ -68,3 +68,6 @@ htmlcov/
 # Docker
 .dockerignore
 
+# Alembic local config (do not commit)
+alembic.ini
+

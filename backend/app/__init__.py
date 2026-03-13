@@ -4,10 +4,12 @@ import logging
 from flask import Flask
 from flask_cors import CORS
 from backend.app.config import config
-from backend.app.database.connection import DatabaseConnection
 from backend.app.extensions import celery_app
 from backend.app.modules.ingestion.routes import ingestion_bp
-from backend.app.modules.dashboard.routes import dashboard_bp
+from backend.app.modules.inventory.routes import inventory_bp
+from backend.app.modules.analytics.routes import analytics_bp
+from backend.app.modules.diagnostics.routes import diagnostics_bp
+from backend.app.modules.forecasting.routes import forecasting_bp
 
 # Configure logging
 logging.basicConfig(
@@ -26,16 +28,17 @@ def create_app():
     app.config['SECRET_KEY'] = config.SECRET_KEY
     app.config['DEBUG'] = config.DEBUG
     
-    # Initialize CORS
-    origins = config.CORS_ORIGINS.split(',')
-    CORS(app, origins=origins, supports_credentials=True)
-    
-    # Initialize database connection pool
-    try:
-        DatabaseConnection.initialize_pool(min_conn=1, max_conn=20)
-        logger.info("Database connection pool initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize database pool: {e}")
+    # Initialize CORS with explicit configuration
+    origins = [origin.strip() for origin in config.CORS_ORIGINS.split(',')]
+    CORS(
+        app,
+        origins=origins,
+        supports_credentials=True,
+        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
+        expose_headers=['Content-Type', 'X-Request-ID'],
+        max_age=3600
+    )
     
     # Initialize Celery
     try:
@@ -54,7 +57,10 @@ def create_app():
     
     # Register blueprints
     app.register_blueprint(ingestion_bp)
-    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(inventory_bp)
+    app.register_blueprint(analytics_bp)
+    app.register_blueprint(diagnostics_bp)
+    app.register_blueprint(forecasting_bp)
     
     # Health check route at root
     @app.route('/')

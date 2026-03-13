@@ -3,6 +3,7 @@
 from typing import Dict, Optional
 
 # Field mappings based on sample data
+
 FIELD_MAPPINGS = {
     'DOC': 'doc_id',
     'LINE': 'line_number',
@@ -21,7 +22,7 @@ FIELD_MAPPINGS = {
     'AD DATE': 'admission_date',
     'R': 'room_number',
     'U': 'bed_number',
-    'AGE': 'patient_age'
+    'AGE': 'date_of_birth'
 }
 
 # Expected data types
