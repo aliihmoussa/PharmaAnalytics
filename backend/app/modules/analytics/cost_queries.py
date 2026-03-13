@@ -125,8 +125,17 @@ class CostAnalysisDAL:
             dept_dict[dept_id]['children'][cat_id]['value'] += drug_value
             dept_dict[dept_id]['value'] += drug_value
         
-        # Convert to list format
-        return [dept_dict[dept_id] for dept_id in sorted(dept_dict.keys())]
+        # Convert to list format: departments as list, each department's children (categories) as list
+        result = []
+        for dept_id in sorted(dept_dict.keys()):
+            dept = dept_dict[dept_id]
+            result.append({
+                'id': dept['id'],
+                'name': dept['name'],
+                'value': dept['value'],
+                'children': [dept['children'][cat_id] for cat_id in sorted(dept['children'].keys())]
+            })
+        return result
     
     def get_top_cost_drivers(self, start_date: date, end_date: date,
                             departments: Optional[List[int]] = None,
@@ -267,8 +276,11 @@ class CostAnalysisDAL:
             quantities_sorted = sorted(quantities)
             
             # Use 95th percentile as upper bound to filter extreme outliers
-            price_p95 = prices_sorted[int(len(prices_sorted) * 0.95)] if len(prices_sorted) > 0 else max(prices)
-            quantity_p95 = quantities_sorted[int(len(quantities_sorted) * 0.95)] if len(quantities_sorted) > 0 else max(quantities)
+            # min(..., len - 1) ensures index never equals len (robust against multiplier/fp changes)
+            num_prices = len(prices_sorted)
+            num_quantities = len(quantities_sorted)
+            price_p95 = prices_sorted[min(int(num_prices * 0.95), num_prices - 1)] if num_prices > 0 else max(prices)
+            quantity_p95 = quantities_sorted[min(int(num_quantities * 0.95), num_quantities - 1)] if num_quantities > 0 else max(quantities)
             
             # Filter outliers and return clean data
             filtered_results = []
