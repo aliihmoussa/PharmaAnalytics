@@ -75,7 +75,7 @@ class CostAnalysisDAL:
             DrugTransaction.drug_code,
             DrugTransaction.drug_name,
             func.sum(func.abs(DrugTransaction.quantity)).label('total_quantity'),
-            func.sum(DrugTransaction.total_price).label('total_cost'),
+            func.sum(func.abs(DrugTransaction.total_price)).label('total_cost'),
             func.count().label('transaction_count')
         ).group_by(
             DrugTransaction.cr,
@@ -154,7 +154,7 @@ class CostAnalysisDAL:
             func.coalesce(DrugTransaction.cr, 0).label('department_id'),
             func.coalesce(DrugTransaction.cat, 0).label('category_id'),
             func.sum(func.abs(DrugTransaction.quantity)).label('total_quantity'),
-            func.sum(DrugTransaction.total_price).label('total_cost'),
+            func.sum(func.abs(DrugTransaction.total_price)).label('total_cost'),
             func.avg(DrugTransaction.unit_price).label('avg_unit_price'),
             func.count().label('transaction_count')
         ).group_by(
@@ -163,7 +163,7 @@ class CostAnalysisDAL:
             DrugTransaction.cr,
             DrugTransaction.cat
         ).order_by(
-            func.sum(DrugTransaction.total_price).desc()
+            func.sum(func.abs(DrugTransaction.total_price)).desc()
         ).limit(limit).all()
         
         return [
@@ -198,7 +198,7 @@ class CostAnalysisDAL:
         
         results = base_query.with_entities(
             func.date_trunc(trunc_unit, DrugTransaction.transaction_date).label('date'),
-            func.sum(DrugTransaction.total_price).label('total_cost'),
+            func.sum(func.abs(DrugTransaction.total_price)).label('total_cost'),
             func.sum(func.abs(DrugTransaction.quantity)).label('total_quantity'),
             func.count().label('transaction_count'),
             func.avg(DrugTransaction.unit_price).label('avg_unit_price')
@@ -250,7 +250,7 @@ class CostAnalysisDAL:
             func.avg(DrugTransaction.unit_price).label('avg_unit_price'),
             func.sum(func.abs(DrugTransaction.quantity)).label('total_quantity'),
             func.count().label('frequency'),
-            func.sum(DrugTransaction.total_price).label('total_cost'),
+            func.sum(func.abs(DrugTransaction.total_price)).label('total_cost'),
             func.max(func.coalesce(DrugTransaction.cr, 0)).label('primary_department_id'),
             func.max(func.coalesce(DrugTransaction.cat, 0)).label('primary_category_id')
         ).group_by(
@@ -261,7 +261,7 @@ class CostAnalysisDAL:
         ).order_by(
             # Order by frequency first, then by total cost
             func.count().desc(),
-            func.sum(DrugTransaction.total_price).desc()
+            func.sum(func.abs(DrugTransaction.total_price)).desc()
         ).limit(max_items).all()
         
         if not results:
