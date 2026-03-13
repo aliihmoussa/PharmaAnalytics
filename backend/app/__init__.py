@@ -6,6 +6,7 @@ from flask_cors import CORS
 from backend.app.config import config
 from backend.app.extensions import celery_app
 from backend.app.modules.ingestion.routes import ingestion_bp
+from backend.app.modules.inventory.routes import inventory_bp
 from backend.app.modules.analytics.routes import analytics_bp
 from backend.app.modules.diagnostics.routes import diagnostics_bp
 from backend.app.modules.forecasting.routes import forecasting_bp
@@ -56,6 +57,7 @@ def create_app():
     
     # Register blueprints
     app.register_blueprint(ingestion_bp)
+    app.register_blueprint(inventory_bp)
     app.register_blueprint(analytics_bp)
     app.register_blueprint(diagnostics_bp)
     app.register_blueprint(forecasting_bp)

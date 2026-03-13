@@ -30,7 +30,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Import all models to ensure they're registered with Base.metadata
-from backend.app.database.models import DrugTransaction, DataIngestionLog, DataIngestionError
+from backend.app.database.models import (
+    DrugTransaction,
+    DataIngestionLog,
+    DataIngestionError,
+    InventoryStock,
+)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

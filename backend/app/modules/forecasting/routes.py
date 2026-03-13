@@ -1,13 +1,19 @@
 """Routes for forecasting module."""
 
+import logging
+
 from flask import Blueprint, request
+
 from backend.app.modules.forecasting.factory import ForecastAlgorithmFactory
 from backend.app.modules.forecasting.parsers import (
     ForecastParams,
     ValidationError
 )
+from backend.app.modules.forecasting.stock_out_forecast import (
+    compute_stock_out_forecast,
+    get_top_at_risk_drugs,
+)
 from backend.app.shared.middleware import handle_exceptions, format_success_response
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -106,4 +112,38 @@ def health_check():
         'endpoint': 'forecast',
         'available_algorithms': ForecastAlgorithmFactory.list_algorithms()
     })
+
+
+@forecasting_bp.route('/stock-out-forecast', methods=['GET'])
+@handle_exceptions
+def stock_out_forecast():
+    """
+    GET /api/forecasting/stock-out-forecast
+
+    Combine inventory (STORE) data with demand forecast to predict when each drug will run out.
+
+    Query params:
+    - drug_code: str (optional) - Single drug code; returns one result.
+    - limit: int (optional, default=20) - When drug_code not provided, return top N drugs at risk (lowest days until stock-out).
+
+    Returns (single drug):
+      { "drug_code", "drug_name", "current_stock", "forecasted_daily_demand",
+        "forecasted_days_until_stockout", "forecasted_stockout_date", "at_risk" }
+
+    Returns (list when no drug_code):
+      { "items": [ ... ], "limit": N }
+    """
+    drug_code = request.args.get('drug_code', '').strip()
+    limit_arg = request.args.get('limit', '20')
+    try:
+        limit = int(limit_arg) if limit_arg else 20
+    except ValueError:
+        limit = 20
+    limit = max(1, min(limit, 100))
+
+    if drug_code:
+        result = compute_stock_out_forecast(drug_code)
+        return format_success_response(result)
+    items = get_top_at_risk_drugs(limit=limit)
+    return format_success_response({'items': items, 'limit': limit})
 
