@@ -111,13 +111,16 @@ class IngestionService(BaseService):
         dal = DataUploadDAL()
         with dal:
             existing_log = dal.get_ingestion_log_by_filename(file_name)
-        if existing_log and existing_log.ingestion_status == 'completed':
-            # Clean up temp file
-            saved_path.unlink()
-            raise DuplicateFileError(f"File '{file_name}' has already been ingested")
-        
-        # Create ingestion log
-            ingestion_log = dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
+            if existing_log and existing_log.ingestion_status == 'completed':
+                # Clean up temp file
+                saved_path.unlink()
+                raise DuplicateFileError(f"File '{file_name}' has already been ingested")
+
+            ingestion_log = dal.create_ingestion_log(
+                file_name=file_name,
+                file_year=file_year,
+                file_hash=file_hash,
+            )
         
         # Submit Celery task
         task = process_ingestion_task.delay(
@@ -266,11 +269,14 @@ class IngestionService(BaseService):
         dal = DataUploadDAL()
         with dal:
             existing_log = dal.get_ingestion_log_by_filename(file_name)
-        if existing_log and existing_log.ingestion_status == 'completed':
-            raise DuplicateFileError(f"File '{file_name}' has already been ingested")
+            if existing_log and existing_log.ingestion_status == 'completed':
+                raise DuplicateFileError(f"File '{file_name}' has already been ingested")
         
-        # Create ingestion log
-            ingestion_log = dal.create_ingestion_log(file_name=file_name, file_year=file_year, file_hash=file_hash)
+            ingestion_log = dal.create_ingestion_log(
+                file_name=file_name,
+                file_year=file_year,
+                file_hash=file_hash,
+            )
         
         # Submit Celery task
         task = process_ingestion_task.delay(
